@@ -16,10 +16,11 @@ const typeorm_1 = require("@nestjs/typeorm");
 const configuration_1 = __importDefault(require("./config/configuration"));
 const auth_module_1 = require("./modules/auth/auth.module");
 const users_module_1 = require("./modules/users/users.module");
-const webhooks_module_1 = require("./modules/webhooks/webhooks.module");
 const contacts_module_1 = require("./modules/contacts/contacts.module");
 const chats_module_1 = require("./modules/chats/chats.module");
 const messages_module_1 = require("./modules/messages/messages.module");
+const webhooks_module_1 = require("./modules/webhooks/webhooks.module");
+const ai_module_1 = require("./modules/ai/ai.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -47,6 +48,7 @@ exports.AppModule = AppModule = __decorate([
             chats_module_1.ChatsModule,
             messages_module_1.MessagesModule,
             webhooks_module_1.WebhooksModule,
+            ai_module_1.AiModule,
         ],
     })
 ], AppModule);

@@ -9,16 +9,23 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatsModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
+const jwt_1 = require("@nestjs/jwt");
 const chats_service_1 = require("./chats.service");
+const chats_controller_1 = require("./chats.controller");
+const chat_gateway_1 = require("./chat.gateway");
 const chat_entity_1 = require("./entities/chat.entity");
 let ChatsModule = class ChatsModule {
 };
 exports.ChatsModule = ChatsModule;
 exports.ChatsModule = ChatsModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([chat_entity_1.Chat])],
-        providers: [chats_service_1.ChatsService],
-        exports: [chats_service_1.ChatsService],
+        imports: [
+            typeorm_1.TypeOrmModule.forFeature([chat_entity_1.Chat]),
+            jwt_1.JwtModule.register({}),
+        ],
+        controllers: [chats_controller_1.ChatsController],
+        providers: [chats_service_1.ChatsService, chat_gateway_1.ChatGateway],
+        exports: [chats_service_1.ChatsService, chat_gateway_1.ChatGateway],
     })
 ], ChatsModule);
 //# sourceMappingURL=chats.module.js.map

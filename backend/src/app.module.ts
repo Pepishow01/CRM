@@ -4,10 +4,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import configuration from './config/configuration';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
-import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { ChatsModule } from './modules/chats/chats.module';
 import { MessagesModule } from './modules/messages/messages.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { AiModule } from './modules/ai/ai.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { MessagesModule } from './modules/messages/messages.module';
     ChatsModule,
     MessagesModule,
     WebhooksModule,
+    AiModule,
   ],
 })
 export class AppModule {}
