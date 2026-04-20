@@ -1,0 +1,37 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import configuration from './config/configuration';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { ContactsModule } from './modules/contacts/contacts.module';
+import { ChatsModule } from './modules/chats/chats.module';
+import { MessagesModule } from './modules/messages/messages.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [configuration],
+    }),
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres',
+        url: config.get('database.url'),
+        entities: [__dirname + '/modules/**/entities/*.entity{.ts,.js}'],
+        autoLoadEntities: true,
+        synchronize: process.env.NODE_ENV === 'development',
+        logging: false,
+      }),
+    }),
+    AuthModule,
+    UsersModule,
+    ContactsModule,
+    ChatsModule,
+    MessagesModule,
+    WebhooksModule,
+  ],
+})
+export class AppModule {}
