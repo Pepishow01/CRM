@@ -9,6 +9,7 @@ import { ChatsModule } from './modules/chats/chats.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { AiModule } from './modules/ai/ai.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { AiModule } from './modules/ai/ai.module';
     MessagesModule,
     WebhooksModule,
     AiModule,
+    HealthModule,
   ],
 })
 export class AppModule {}
