@@ -1,8 +1,7 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "cd backend && npm install && npm run build"
 
 [deploy]
-startCommand = "cd backend && node dist/main.js"
+startCommand = "node backend/dist/main.js"
 healthcheckPath = "/api/v1/health"
 restartPolicyType = "ON_FAILURE"
