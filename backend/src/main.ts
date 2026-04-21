@@ -31,7 +31,8 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, config));
   }
 
-  await app.listen(3001);
-  console.log('API corriendo en http://localhost:3001/api/v1');
+  const port = process.env.PORT || 3001;
+await app.listen(port);
+console.log(`API corriendo en http://localhost:${port}/api/v1`);
 }
 bootstrap();
