@@ -9,13 +9,14 @@ export class WhatsAppSenderService {
   private readonly phoneNumberId: string;
 
   constructor(private config: ConfigService) {
-    const apiVersion = config.get('META_API_VERSION') || 'v19.0';
-    this.phoneNumberId = config.get('WHATSAPP_PHONE_NUMBER_ID') || '';
+    const apiVersion = config.get('META_API_VERSION') || 'v20.0';
+    this.phoneNumberId = (config.get('WHATSAPP_PHONE_NUMBER_ID') || '').trim();
+    const token = (config.get('WHATSAPP_API_TOKEN') || '').trim();
 
     this.client = axios.create({
       baseURL: `https://graph.facebook.com/${apiVersion}`,
       headers: {
-        Authorization: `Bearer ${config.get('WHATSAPP_API_TOKEN')}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       timeout: 10000,
