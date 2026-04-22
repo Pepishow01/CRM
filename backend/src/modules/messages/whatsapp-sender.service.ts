@@ -23,7 +23,9 @@ export class WhatsAppSenderService {
   }
 
   async sendText(to: string, text: string): Promise<string> {
-    this.logger.log(`Enviando mensaje a: ${to}`);
+    // Sanitizar el número: eliminar cualquier cosa que no sea un dígito (como el '+')
+    const cleanTo = to.replace(/\D/g, '');
+    this.logger.log(`Enviando mensaje a: ${cleanTo} (original: ${to})`);
 
     try {
       const response = await this.client.post(
@@ -31,7 +33,7 @@ export class WhatsAppSenderService {
         {
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
-          to,
+          to: cleanTo,
           type: 'text',
           text: {
             preview_url: false,
