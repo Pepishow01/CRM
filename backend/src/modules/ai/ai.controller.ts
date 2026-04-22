@@ -19,7 +19,7 @@ export class AiController {
   @Post('classify')
   async classify(@Param('chatId') chatId: string) {
     const messages = await this.messagesService.findByChatId(chatId, {
-      page: 1, limit: 20,
+      page: 1, limit: 100,
     });
     const conversation = this.aiService.formatConversation(messages);
     return this.aiService.classifyLead(conversation);
@@ -29,7 +29,7 @@ export class AiController {
   async suggest(@Param('chatId') chatId: string) {
     const chat = await this.chatsService.findById(chatId);
     const messages = await this.messagesService.findByChatId(chatId, {
-      page: 1, limit: 15,
+      page: 1, limit: 100,
     });
     const conversation = this.aiService.formatConversation(messages);
     return this.aiService.suggestReplies(
@@ -41,7 +41,7 @@ export class AiController {
   @Post('extract')
   async extract(@Param('chatId') chatId: string) {
     const messages = await this.messagesService.findByChatId(chatId, {
-      page: 1, limit: 30,
+      page: 1, limit: 100,
     });
     const conversation = this.aiService.formatConversation(messages);
     return this.aiService.extractTravelData(conversation);
