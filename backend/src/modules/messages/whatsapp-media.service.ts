@@ -38,7 +38,7 @@ export class WhatsAppMediaService {
       });
       return {
         buffer: Buffer.from(response.data),
-        contentType: response.headers['content-type'],
+        contentType: String(response.headers['content-type'] || 'application/octet-stream'),
       };
     } catch (error) {
       this.logger.error(`Error descargando media de Meta: ${error.message}`);

@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Res, UseGuards, NotFoundException } from '@nestjs/common';
-import { Response } from 'express';
+import * as express from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WhatsAppMediaService } from './whatsapp-media.service';
 
@@ -9,7 +9,7 @@ export class MediaController {
 
   @Get(':mediaId')
   @UseGuards(JwtAuthGuard)
-  async getMedia(@Param('mediaId') mediaId: string, @Res() res: Response) {
+  async getMedia(@Param('mediaId') mediaId: string, @Res() res: express.Response) {
     // 1. Obtener la URL real de Meta
     const url = await this.mediaService.getMediaUrl(mediaId);
     if (!url) {

@@ -40,7 +40,7 @@ export class MessageProcessor {
       externalId: msg.externalId,
       contentType: msg.contentType,
       content: msg.text,
-      mediaUrl: msg.mediaId ? `/media/${msg.mediaId}` : null,
+      mediaUrl: msg.mediaId ? `/media/${msg.mediaId}` : undefined,
       metaPayload: msg.rawPayload,
       sentAt: msg.timestamp,
     });
