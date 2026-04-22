@@ -73,6 +73,9 @@ let ChatsService = class ChatsService {
     async updateStatus(chatId, status) {
         await this.chatsRepo.update(chatId, { status: status });
     }
+    async toggleBot(chatId, active) {
+        await this.chatsRepo.update(chatId, { isBotActive: active });
+    }
 };
 exports.ChatsService = ChatsService;
 exports.ChatsService = ChatsService = __decorate([

@@ -21,7 +21,7 @@ function parseWhatsAppPayload(payload) {
                     recipientId: value.metadata?.phone_number_id,
                     contentType,
                     text: msg.text?.body ?? msg.caption,
-                    mediaId: msg.image?.id ?? msg.audio?.id ?? msg.video?.id ?? msg.document?.id,
+                    mediaId: msg.image?.id ?? msg.audio?.id ?? msg.video?.id ?? msg.document?.id ?? msg.sticker?.id,
                     timestamp: new Date(parseInt(msg.timestamp, 10) * 1000),
                     rawPayload: msg,
                 });

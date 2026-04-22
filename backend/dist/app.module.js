@@ -21,6 +21,8 @@ const chats_module_1 = require("./modules/chats/chats.module");
 const messages_module_1 = require("./modules/messages/messages.module");
 const webhooks_module_1 = require("./modules/webhooks/webhooks.module");
 const ai_module_1 = require("./modules/ai/ai.module");
+const health_module_1 = require("./modules/health/health.module");
+const settings_module_1 = require("./modules/settings/settings.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -38,7 +40,7 @@ exports.AppModule = AppModule = __decorate([
                     url: config.get('database.url'),
                     entities: [__dirname + '/modules/**/entities/*.entity{.ts,.js}'],
                     autoLoadEntities: true,
-                    synchronize: process.env.NODE_ENV === 'development',
+                    synchronize: true,
                     logging: false,
                 }),
             }),
@@ -49,6 +51,8 @@ exports.AppModule = AppModule = __decorate([
             messages_module_1.MessagesModule,
             webhooks_module_1.WebhooksModule,
             ai_module_1.AiModule,
+            health_module_1.HealthModule,
+            settings_module_1.SettingsModule,
         ],
     })
 ], AppModule);

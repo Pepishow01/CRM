@@ -71,13 +71,13 @@ let WebhooksController = WebhooksController_1 = class WebhooksController {
     async receiveEvent(req, signature, payload) {
         const appSecret = this.config.get('META_APP_SECRET');
         if (appSecret && appSecret !== 'completar_despues' && signature) {
-            const rawBody = JSON.stringify(payload);
+            const rawBody = req['rawBody'] || JSON.stringify(payload);
             const expectedSig = 'sha256=' + crypto
                 .createHmac('sha256', appSecret)
                 .update(rawBody)
                 .digest('hex');
             if (signature !== expectedSig) {
-                this.logger.warn('Firma inválida recibida');
+                this.logger.warn(`Firma inválida. Recibida: ${signature}. Esperada: ${expectedSig}`);
                 throw new common_1.BadRequestException('Firma inválida');
             }
         }

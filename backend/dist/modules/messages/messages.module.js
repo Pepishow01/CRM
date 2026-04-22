@@ -14,6 +14,8 @@ const messages_controller_1 = require("./messages.controller");
 const whatsapp_sender_service_1 = require("./whatsapp-sender.service");
 const message_entity_1 = require("./entities/message.entity");
 const chats_module_1 = require("../chats/chats.module");
+const whatsapp_media_service_1 = require("./whatsapp-media.service");
+const media_controller_1 = require("./media.controller");
 let MessagesModule = class MessagesModule {
 };
 exports.MessagesModule = MessagesModule;
@@ -23,9 +25,9 @@ exports.MessagesModule = MessagesModule = __decorate([
             typeorm_1.TypeOrmModule.forFeature([message_entity_1.Message]),
             chats_module_1.ChatsModule,
         ],
-        controllers: [messages_controller_1.MessagesController],
-        providers: [messages_service_1.MessagesService, whatsapp_sender_service_1.WhatsAppSenderService],
-        exports: [messages_service_1.MessagesService, whatsapp_sender_service_1.WhatsAppSenderService],
+        controllers: [messages_controller_1.MessagesController, media_controller_1.MediaController],
+        providers: [messages_service_1.MessagesService, whatsapp_sender_service_1.WhatsAppSenderService, whatsapp_media_service_1.WhatsAppMediaService],
+        exports: [messages_service_1.MessagesService, whatsapp_sender_service_1.WhatsAppSenderService, whatsapp_media_service_1.WhatsAppMediaService],
     })
 ], MessagesModule);
 //# sourceMappingURL=messages.module.js.map

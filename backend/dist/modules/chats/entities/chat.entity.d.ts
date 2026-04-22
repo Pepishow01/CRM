@@ -22,6 +22,7 @@ export declare class Chat {
     unreadCount: number;
     lastMessageAt: Date;
     lastMessagePreview: string;
+    isBotActive: boolean;
     createdAt: Date;
     updatedAt: Date;
 }

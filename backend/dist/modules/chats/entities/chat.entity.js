@@ -37,6 +37,7 @@ let Chat = class Chat {
     unreadCount;
     lastMessageAt;
     lastMessagePreview;
+    isBotActive;
     createdAt;
     updatedAt;
 };
@@ -79,6 +80,10 @@ __decorate([
     (0, typeorm_1.Column)({ name: 'last_message_preview', nullable: true }),
     __metadata("design:type", String)
 ], Chat.prototype, "lastMessagePreview", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'is_bot_active', default: false }),
+    __metadata("design:type", Boolean)
+], Chat.prototype, "isBotActive", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ name: 'created_at' }),
     __metadata("design:type", Date)

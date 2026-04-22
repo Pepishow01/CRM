@@ -14,4 +14,5 @@ export declare class ChatsService {
     }): Promise<void>;
     findAll(userId?: string): Promise<Chat[]>;
     updateStatus(chatId: string, status: string): Promise<void>;
+    toggleBot(chatId: string, active: boolean): Promise<void>;
 }

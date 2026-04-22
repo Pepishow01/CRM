@@ -14,12 +14,13 @@ const message_processor_1 = require("./processors/message.processor");
 const contacts_module_1 = require("../contacts/contacts.module");
 const chats_module_1 = require("../chats/chats.module");
 const messages_module_1 = require("../messages/messages.module");
+const ai_module_1 = require("../ai/ai.module");
 let WebhooksModule = class WebhooksModule {
 };
 exports.WebhooksModule = WebhooksModule;
 exports.WebhooksModule = WebhooksModule = __decorate([
     (0, common_1.Module)({
-        imports: [contacts_module_1.ContactsModule, chats_module_1.ChatsModule, messages_module_1.MessagesModule],
+        imports: [contacts_module_1.ContactsModule, chats_module_1.ChatsModule, messages_module_1.MessagesModule, ai_module_1.AiModule],
         controllers: [webhooks_controller_1.WebhooksController],
         providers: [webhooks_service_1.WebhooksService, message_processor_1.MessageProcessor],
         exports: [webhooks_service_1.WebhooksService],
