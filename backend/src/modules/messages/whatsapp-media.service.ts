@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
+import * as FormData from 'form-data';
 
 @Injectable()
 export class WhatsAppMediaService {
@@ -42,6 +43,26 @@ export class WhatsAppMediaService {
       };
     } catch (error) {
       this.logger.error(`Error descargando media de Meta: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async uploadMedia(file: Express.Multer.File): Promise<string> {
+    try {
+      const phoneNumberId = this.config.get('WHATSAPP_PHONE_NUMBER_ID');
+      const form = new FormData();
+      form.append('file', file.buffer, {
+        filename: file.originalname,
+        contentType: file.mimetype,
+      });
+      form.append('messaging_product', 'whatsapp');
+
+      const response = await this.client.post(`/${phoneNumberId}/media`, form, {
+        headers: form.getHeaders(),
+      });
+      return response.data.id;
+    } catch (error) {
+      this.logger.error(`Error subiendo media a Meta: ${error.response?.data ? JSON.stringify(error.response.data) : error.message}`);
       throw error;
     }
   }

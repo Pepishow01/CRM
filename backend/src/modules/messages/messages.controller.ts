@@ -79,4 +79,65 @@ export class MessagesController {
 
     return message;
   }
+
+  @Get('templates')
+  async getTemplates() {
+    return this.whatsAppSender.getTemplates();
+  }
+
+  @Post('template')
+  async sendTemplate(
+    @Param('chatId') chatId: string,
+    @Body() body: { templateName: string; languageCode: string },
+  ) {
+    const chat = await this.chatsService.findById(chatId);
+    if (!chat || !chat.contact?.whatsappPhone) throw new Error('Chat o teléfono no encontrado');
+
+    const externalId = await this.whatsAppSender.sendTemplate(
+      chat.contact.whatsappPhone,
+      body.templateName,
+      body.languageCode,
+    );
+
+    return this.messagesService.create({
+      chatId,
+      direction: 'outbound',
+      channel: 'whatsapp',
+      externalId,
+      contentType: 'template',
+      content: `Plantilla: ${body.templateName}`,
+      sentAt: new Date(),
+    });
+  }
+
+  @Post('media')
+  async sendMedia(
+    @Param('chatId') chatId: string,
+    @Body() body: { mediaId: string; contentType: string; filename?: string },
+  ) {
+    const chat = await this.chatsService.findById(chatId);
+    if (!chat || !chat.contact?.whatsappPhone) throw new Error('Chat o teléfono no encontrado');
+
+    let type: 'image' | 'audio' | 'document' | 'video' = 'document';
+    if (body.contentType.startsWith('image/')) type = 'image';
+    else if (body.contentType.startsWith('audio/')) type = 'audio';
+    else if (body.contentType.startsWith('video/')) type = 'video';
+
+    const externalId = await this.whatsAppSender.sendMediaById(
+      chat.contact.whatsappPhone,
+      body.mediaId,
+      type,
+    );
+
+    return this.messagesService.create({
+      chatId,
+      direction: 'outbound',
+      channel: 'whatsapp',
+      externalId,
+      contentType: type,
+      content: body.filename || `Archivo ${type}`,
+      mediaUrl: `/api/v1/media/${body.mediaId}`,
+      sentAt: new Date(),
+    });
+  }
 }

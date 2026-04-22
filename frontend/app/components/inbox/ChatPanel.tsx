@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import api from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import AiPanel from './AiPanel';
+import TemplatesModal from './TemplatesModal';
+import EmojiPicker from 'emoji-picker-react';
 
 interface Message {
   id: string;
@@ -36,12 +38,7 @@ function MediaMessage({ msg }: { msg: Message }) {
       <div style={{ marginTop: '4px' }}>
         {loading ? <div style={{ fontSize: '12px', padding: '10px' }}>Cargando imagen...</div> : 
           mediaBlob ? (
-            <img src={mediaBlob} alt="Media" style={{ 
-              maxWidth: '100%', 
-              maxHeight: '300px', 
-              borderRadius: '8px',
-              display: 'block' 
-            }} />
+            <img src={mediaBlob} alt="Media" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', display: 'block' }} />
           ) : <div style={{ fontSize: '11px', opacity: 0.5 }}>[Imagen]</div>}
         {msg.content && <div style={{ marginTop: '6px' }}>{msg.content}</div>}
       </div>
@@ -62,150 +59,121 @@ function MediaMessage({ msg }: { msg: Message }) {
   return <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>;
 }
 
-interface Chat {
-  id: string;
-  channel: string;
-  status: string;
-  isBotActive: boolean;
-  contact: {
-    id: string;
-    fullName?: string;
-    whatsappPhone?: string;
-  };
-}
-
-interface Props {
-  chatId: string;
-  onClose: () => void;
-}
-
-export default function ChatPanel({ chatId, onClose }: Props) {
-  const [chat, setChat] = useState<Chat | null>(null);
+export default function ChatPanel({ chatId, onClose }: { chatId: string; onClose: () => void }) {
+  const [chat, setChat] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [isPrivateMode, setIsPrivateMode] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  
+  // Audio State
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadChat();
     loadMessages();
-
     const socket = getSocket();
-
     const handleNewMessage = (data: any) => {
       if (data.chatId === chatId) {
         setMessages((prev) => {
-          const exists = prev.find((m) => m.id === data.message.id);
-          if (exists) return prev;
-          const newMessages = [...prev, data.message];
-          return newMessages.sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+          if (prev.find(m => m.id === data.message.id)) return prev;
+          return [...prev, data.message].sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
         });
       }
     };
-
     socket.on('chat:new-message', handleNewMessage);
-    socket.on('chat:unassigned-message', handleNewMessage);
-
-    return () => {
-      socket.off('chat:new-message', handleNewMessage);
-      socket.off('chat:unassigned-message', handleNewMessage);
-    };
+    return () => socket.off('chat:new-message', handleNewMessage);
   }, [chatId]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  async function loadChat() {
-    try {
-      const r = await api.get(`/chats/${chatId}`);
-      setChat(r.data);
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  async function loadMessages() {
-    try {
-      const r = await api.get(`/chats/${chatId}/messages`);
-      setMessages(r.data);
-    } catch (err) {
-      console.error(err);
-    }
-  }
+  async function loadChat() { const r = await api.get(`/chats/${chatId}`); setChat(r.data); }
+  async function loadMessages() { const r = await api.get(`/chats/${chatId}/messages`); setMessages(r.data); }
 
   async function handleSend(isPrivate: boolean = false) {
     if (!text.trim() || sending) return;
     const content = text.trim();
     setText('');
     setSending(true);
-
-    const temp: Message = {
-      id: `temp-${Date.now()}`,
-      direction: 'outbound',
-      content,
-      sentAt: new Date().toISOString(),
-      contentType: 'text',
-      isPrivate
-    };
-    setMessages((prev) => [...prev, temp]);
-
     try {
       const r = await api.post(`/chats/${chatId}/messages`, { text: content, isPrivate });
-      setMessages((prev) =>
-        prev.map((m) => (m.id === temp.id ? r.data : m))
-      );
-      if (isPrivate) setIsPrivateMode(false); // Volver a modo normal tras nota
+      setMessages((prev) => [...prev, r.data]);
+      // NO reseteamos isPrivateMode a pedido del usuario
     } catch (err) {
-      setMessages((prev) => prev.filter((m) => m.id !== temp.id));
       setText(content);
-    } finally {
-      setSending(false);
-    }
+    } finally { setSending(false); }
   }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSending(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploadRes = await api.post('/media/upload', formData);
+      const r = await api.post(`/chats/${chatId}/messages/media`, {
+        mediaId: uploadRes.data.mediaId,
+        contentType: file.type,
+        filename: file.name
+      });
+      setMessages(prev => [...prev, r.data]);
+    } catch (err) { alert('Error subiendo archivo'); }
+    finally { setSending(false); }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/ogg' });
+        setAudioBlob(blob);
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+    } catch (err) { alert('Permiso de micrófono denegado'); }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+  };
+
+  const sendAudio = async () => {
+    if (!audioBlob) return;
+    setSending(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'audio.ogg');
+      const uploadRes = await api.post('/media/upload', formData);
+      const r = await api.post(`/chats/${chatId}/messages/media`, {
+        mediaId: uploadRes.data.mediaId,
+        contentType: 'audio/ogg',
+        filename: 'Nota de voz'
+      });
+      setMessages(prev => [...prev, r.data]);
+      setAudioBlob(null);
+    } catch (err) { alert('Error enviando audio'); }
+    finally { setSending(false); }
+  };
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend(isPrivateMode);
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(isPrivateMode); }
   }
 
-  function formatTime(date: string) {
-    return new Date(date).toLocaleTimeString('es-AR', {
-      hour: '2-digit', minute: '2-digit',
-    });
-  }
-
-  function getInitials(name?: string): string {
-    if (!name) return '?';
-    return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
-  }
-
-  const toggleBot = async () => {
-    if (!chat) return;
-    try {
-      const newState = !chat.isBotActive;
-      await api.patch(`/chats/${chat.id}/bot`, { active: newState });
-      setChat({ ...chat, isBotActive: newState });
-    } catch (err) {
-      console.error('Error al cambiar estado del bot:', err);
-    }
-  };
-
-  const insertSignature = () => {
-    const signature = `\n\nSaludos Pedro - TDH Villa Cabrera`;
-    setText(prev => prev + signature);
-  };
-
-  const STATUS_LABELS: Record<string, string> = {
-    new: 'Nuevo',
-    in_progress: 'En progreso',
-    waiting: 'Esperando',
-    sold: 'Vendido',
-    lost: 'Perdido',
-  };
+  const insertSignature = () => setText(prev => prev + `\n\nSaludos Pedro - TDH Villa Cabrera`);
 
   const toolButtonStyle = {
     width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -214,72 +182,32 @@ export default function ChatPanel({ chatId, onClose }: Props) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
       {/* HEADER */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '12px',
-        padding: '12px 16px', borderBottom: '1px solid #e5e7eb',
-        background: '#fff', flexShrink: 0,
-      }}>
-        <div style={{
-          width: '40px', height: '40px', borderRadius: '50%',
-          background: '#dcfce7', color: '#166534',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '14px', fontWeight: 600, flexShrink: 0,
-        }}>
-          {getInitials(chat?.contact?.fullName)}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #e5e7eb', background: '#fff', flexShrink: 0 }}>
+        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#dcfce7', color: '#166534', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 600 }}>
+          {chat?.contact?.fullName?.[0]?.toUpperCase() || '?'}
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 500, fontSize: '15px' }}>
-            {chat?.contact?.fullName ?? chat?.contact?.whatsappPhone ?? 'Sin nombre'}
-          </div>
-          <div style={{ fontSize: '12px', color: '#6b7280' }}>
-            {chat?.channel} · {STATUS_LABELS[chat?.status ?? ''] ?? chat?.status}
-          </div>
+          <div style={{ fontWeight: 500, fontSize: '15px' }}>{chat?.contact?.fullName || 'Chat'}</div>
+          <div style={{ fontSize: '12px', color: '#6b7280' }}>{chat?.status}</div>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button onClick={toggleBot} style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '6px 12px', borderRadius: '20px', border: '1px solid',
-            borderColor: chat?.isBotActive ? '#10b981' : '#d1d5db',
-            background: chat?.isBotActive ? '#ecfdf5' : '#fff',
-            color: chat?.isBotActive ? '#059669' : '#374151',
-            fontSize: '11px', fontWeight: '600', cursor: 'pointer',
-          }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: chat?.isBotActive ? '#10b981' : '#9ca3af' }} />
-            {chat?.isBotActive ? 'BOT ACTIVO' : 'BOT DESACTIVADO'}
-          </button>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}>x</button>
-        </div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}>&times;</button>
       </div>
 
-      {/* ÁREA DE MENSAJES */}
-      <div style={{
-        flex: 1, overflowY: 'auto', padding: '16px',
-        display: 'flex', flexDirection: 'column', gap: '4px',
-        background: '#f9fafb',
-      }}>
+      {/* MESSAGES */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', background: '#f9fafb', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {messages.map((msg) => (
-          <div key={msg.id} style={{
-            display: 'flex',
-            justifyContent: msg.direction === 'outbound' ? 'flex-end' : 'flex-start',
-            marginBottom: '8px',
-          }}>
+          <div key={msg.id} style={{ display: 'flex', justifyContent: msg.direction === 'outbound' ? 'flex-end' : 'flex-start' }}>
             <div style={{
-              maxWidth: '75%', padding: '10px 14px',
-              borderRadius: msg.direction === 'outbound' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+              maxWidth: '75%', padding: '10px 14px', borderRadius: '12px',
               background: msg.isPrivate ? '#fef9c3' : (msg.direction === 'outbound' ? '#4f46e5' : '#fff'),
               color: msg.isPrivate ? '#854d0e' : (msg.direction === 'outbound' ? '#fff' : '#111827'),
-              fontSize: '14px', lineHeight: '1.5',
-              border: msg.isPrivate ? '1px solid #fde047' : (msg.direction === 'inbound' ? '1px solid #e5e7eb' : 'none'),
-              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              fontSize: '14px', border: msg.isPrivate ? '1px solid #fde047' : 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
             }}>
-              {msg.isPrivate && <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '4px', textTransform: 'uppercase', color: '#a16207' }}>📌 Nota Privada</div>}
+              {msg.isPrivate && <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#a16207' }}>📌 NOTA PRIVADA</div>}
               <MediaMessage msg={msg} />
-              <div style={{ fontSize: '10px', marginTop: '4px', textAlign: 'right', opacity: 0.6 }}>
-                {formatTime(msg.sentAt)}
-              </div>
+              <div style={{ fontSize: '10px', marginTop: '4px', textAlign: 'right', opacity: 0.6 }}>{new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
             </div>
           </div>
         ))}
@@ -288,75 +216,64 @@ export default function ChatPanel({ chatId, onClose }: Props) {
 
       <AiPanel chatId={chatId} onUseSuggestion={(s) => setText(s)} />
 
-      {/* ÁREA DE ENTRADA PRO (Basada en la foto) */}
+      {/* EMOJI PICKER POPUP */}
+      {showEmoji && (
+        <div style={{ position: 'absolute', bottom: '150px', left: '16px', zIndex: 100 }}>
+          <EmojiPicker onEmojiClick={(e) => { setText(prev => prev + e.emoji); setShowEmoji(false); }} />
+        </div>
+      )}
+
+      {/* INPUT AREA */}
       <div style={{ padding: '12px 16px', background: '#fff', borderTop: '1px solid #e5e7eb' }}>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-          <button 
-            onClick={() => setIsPrivateMode(false)}
-            style={{ 
-              padding: '8px 16px', borderRadius: '12px', border: 'none',
-              background: !isPrivateMode ? '#f3f4f6' : 'transparent',
-              fontWeight: !isPrivateMode ? 600 : 500,
-              fontSize: '14px', cursor: 'pointer', color: !isPrivateMode ? '#111827' : '#6b7280',
-              transition: 'all 0.2s'
-            }}
-          >Responder</button>
-          <button 
-            onClick={() => setIsPrivateMode(true)}
-            style={{ 
-              padding: '8px 16px', borderRadius: '12px', border: 'none',
-              background: isPrivateMode ? '#fef9c3' : 'transparent',
-              fontWeight: isPrivateMode ? 600 : 500,
-              fontSize: '14px', cursor: 'pointer', color: isPrivateMode ? '#854d0e' : '#6b7280',
-              transition: 'all 0.2s'
-            }}
-          >Nota privada</button>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          <button onClick={() => setIsPrivateMode(false)} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', background: !isPrivateMode ? '#f3f4f6' : 'transparent', fontWeight: !isPrivateMode ? 600 : 400, cursor: 'pointer' }}>Responder</button>
+          <button onClick={() => setIsPrivateMode(true)} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', background: isPrivateMode ? '#fef9c3' : 'transparent', fontWeight: isPrivateMode ? 600 : 400, cursor: 'pointer', color: isPrivateMode ? '#854d0e' : '#6b7280' }}>Nota privada</button>
         </div>
 
-        <div style={{ 
-          border: '1px solid #e5e7eb', borderRadius: '16px', padding: '12px',
-          background: isPrivateMode ? '#fffbeb' : '#fff',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-          transition: 'all 0.2s'
-        }}>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={isPrivateMode ? "Escribe una nota interna para el equipo..." : "Shift + enter for new line. Comience con '/' para seleccionar una respuesta predefinida."}
-            style={{
-              width: '100%', minHeight: '80px', border: 'none', outline: 'none',
-              background: 'transparent', fontSize: '15px', resize: 'none', padding: '4px',
-              color: '#1f2937'
-            }}
-          />
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.03)' }}>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button style={toolButtonStyle} title="Emojis">😊</button>
-              <button style={toolButtonStyle} title="Adjuntar archivo">📎</button>
-              <button style={toolButtonStyle} title="Grabar audio">🎤</button>
-              <button onClick={insertSignature} style={toolButtonStyle} title="Insertar firma">✍️</button>
-              <button style={toolButtonStyle} title="Plantillas de WhatsApp">💬</button>
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: '16px', padding: '12px', background: isPrivateMode ? '#fffbeb' : '#fff' }}>
+          {audioBlob ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px' }}>
+              <audio src={URL.createObjectURL(audioBlob)} controls style={{ height: '30px' }} />
+              <button onClick={() => setAudioBlob(null)} style={{ background: '#fee2e2', border: 'none', borderRadius: '8px', padding: '6px', cursor: 'pointer' }}>🗑️</button>
+              <button onClick={sendAudio} style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer' }}>Enviar audio</button>
             </div>
+          ) : (
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={isPrivateMode ? "Escribe una nota interna..." : "Shift + enter for new line. Comience con '/' para seleccionar una respuesta..."}
+              style={{ width: '100%', minHeight: '60px', border: 'none', outline: 'none', background: 'transparent', fontSize: '14px', resize: 'none' }}
+            />
+          )}
 
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button onClick={() => setShowEmoji(!showEmoji)} style={toolButtonStyle}>😊</button>
+              <button onClick={() => fileInputRef.current?.click()} style={toolButtonStyle}>📎</button>
+              <button 
+                onMouseDown={startRecording} 
+                onMouseUp={stopRecording}
+                style={{ ...toolButtonStyle, background: isRecording ? '#fee2e2' : '#f9fafb', color: isRecording ? '#ef4444' : '#6b7280' }}
+              >
+                🎤
+              </button>
+              <button onClick={insertSignature} style={toolButtonStyle}>✍️</button>
+              <button onClick={() => setShowTemplates(true)} style={toolButtonStyle}>💬</button>
+            </div>
             <button
               onClick={() => handleSend(isPrivateMode)}
-              disabled={!text.trim() || sending}
-              style={{
-                padding: '10px 24px', borderRadius: '12px', border: 'none',
-                background: isPrivateMode ? '#f59e0b' : '#3b82f6',
-                color: '#fff', fontWeight: 600, fontSize: '14px',
-                cursor: 'pointer', transition: 'all 0.2s',
-                opacity: (!text.trim() || sending) ? 0.6 : 1,
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-              }}
+              disabled={(!text.trim() && !audioBlob) || sending}
+              style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: isPrivateMode ? '#f59e0b' : '#3b82f6', color: '#fff', fontWeight: 600, cursor: 'pointer', opacity: (!text.trim() || sending) ? 0.6 : 1 }}
             >
               {isPrivateMode ? 'Guardar nota' : 'Enviar (↩)'}
             </button>
           </div>
         </div>
       </div>
+
+      <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
+      {showTemplates && <TemplatesModal chatId={chatId} onClose={() => setShowTemplates(false)} onSend={loadMessages} />}
     </div>
   );
 }

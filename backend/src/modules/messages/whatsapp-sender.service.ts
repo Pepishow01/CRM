@@ -9,7 +9,7 @@ export class WhatsAppSenderService {
   private readonly phoneNumberId: string;
 
   constructor(private config: ConfigService) {
-    const apiVersion = config.get('META_API_VERSION') || 'v20.0';
+    const apiVersion = config.get('WHATSAPP_API_VERSION') || 'v20.0';
     this.phoneNumberId = (config.get('WHATSAPP_PHONE_NUMBER_ID') || '').trim();
     const token = (config.get('WHATSAPP_API_TOKEN') || '').trim();
 
@@ -24,7 +24,6 @@ export class WhatsAppSenderService {
   }
 
   async sendText(to: string, text: string): Promise<string> {
-    // Sanitizar el número: eliminar cualquier cosa que no sea un dígito (como el '+')
     const cleanTo = to.replace(/\D/g, '');
     this.logger.log(`Enviando mensaje a: ${cleanTo} (original: ${to})`);
 
@@ -76,6 +75,56 @@ export class WhatsAppSenderService {
       throw new BadRequestException(
         'No se pudo conectar con WhatsApp. Verificá la configuración del servidor.',
       );
+    }
+  }
+
+  async sendMediaById(to: string, mediaId: string, type: 'image' | 'audio' | 'document' | 'video'): Promise<string> {
+    const cleanTo = to.replace(/\D/g, '');
+    try {
+      const response = await this.client.post(`/${this.phoneNumberId}/messages`, {
+        messaging_product: 'whatsapp',
+        to: cleanTo,
+        type: type,
+        [type]: { id: mediaId }
+      });
+      return response.data.messages?.[0]?.id;
+    } catch (error) {
+      this.logger.error(`Error enviando media por ID: ${error.message}`);
+      throw new BadRequestException('Error al enviar archivo por WhatsApp');
+    }
+  }
+
+  async getTemplates(): Promise<any[]> {
+    const businessAccountId = this.config.get('WHATSAPP_BUSINESS_ACCOUNT_ID');
+    if (!businessAccountId) {
+      this.logger.warn('WHATSAPP_BUSINESS_ACCOUNT_ID no configurado en .env');
+      return [];
+    }
+    try {
+      const response = await this.client.get(`/${businessAccountId}/message_templates`);
+      return response.data.data;
+    } catch (error) {
+      this.logger.error(`Error obteniendo plantillas: ${error.message}`);
+      return [];
+    }
+  }
+
+  async sendTemplate(to: string, templateName: string, languageCode: string): Promise<string> {
+    const cleanTo = to.replace(/\D/g, '');
+    try {
+      const response = await this.client.post(`/${this.phoneNumberId}/messages`, {
+        messaging_product: 'whatsapp',
+        to: cleanTo,
+        type: 'template',
+        template: {
+          name: templateName,
+          language: { code: languageCode }
+        }
+      });
+      return response.data.messages?.[0]?.id;
+    } catch (error) {
+      this.logger.error(`Error enviando plantilla: ${error.message}`);
+      throw new BadRequestException('Error al enviar plantilla de WhatsApp');
     }
   }
 }
