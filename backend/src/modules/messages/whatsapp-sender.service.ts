@@ -28,16 +28,9 @@ export class WhatsAppSenderService {
     const cleanTo = to.replace(/\D/g, '');
     this.logger.log(`Enviando mensaje a: ${cleanTo} (original: ${to})`);
 
-    const url = `/${this.phoneNumberId}/messages`;
-    console.log('=== DIAGNÓSTICO META INICIO ===');
-    console.log('URL DESTINO:', `https://graph.facebook.com/${url}`);
-    console.log('PHONE ID:', this.phoneNumberId);
-    console.log('TOKEN (PRIMEROS 15):', (this.config.get('WHATSAPP_API_TOKEN') || '').substring(0, 15));
-    console.log('=== DIAGNÓSTICO META FIN ===');
-
     try {
       const response = await this.client.post(
-        url,
+        `/${this.phoneNumberId}/messages`,
         {
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
