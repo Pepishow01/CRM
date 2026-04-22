@@ -65,6 +65,7 @@ interface Chat {
   id: string;
   channel: string;
   status: string;
+  isBotActive: boolean;
   contact: {
     id: string;
     fullName?: string;
@@ -177,6 +178,17 @@ export default function ChatPanel({ chatId, onClose }: Props) {
     return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
   }
 
+  const toggleBot = async () => {
+    if (!chat) return;
+    try {
+      const newState = !chat.isBotActive;
+      await api.patch(`/chats/${chat.id}/bot`, { active: newState });
+      setChat({ ...chat, isBotActive: newState });
+    } catch (err) {
+      console.error('Error al cambiar estado del bot:', err);
+    }
+  };
+
   const STATUS_LABELS: Record<string, string> = {
     new: 'Nuevo',
     in_progress: 'En progreso',
@@ -209,13 +221,35 @@ export default function ChatPanel({ chatId, onClose }: Props) {
             {chat?.channel} · {STATUS_LABELS[chat?.status ?? ''] ?? chat?.status}
           </div>
         </div>
-        <button
-          onClick={onClose}
-          style={{
-            background: 'none', border: 'none',
-            fontSize: '20px', cursor: 'pointer', color: '#9ca3af',
-          }}
-        >x</button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            onClick={toggleBot}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '6px 12px', borderRadius: '20px',
+              border: '1px solid',
+              borderColor: chat?.isBotActive ? '#10b981' : '#d1d5db',
+              background: chat?.isBotActive ? '#ecfdf5' : '#fff',
+              color: chat?.isBotActive ? '#059669' : '#374151',
+              fontSize: '11px', fontWeight: '600',
+              cursor: 'pointer', transition: 'all 0.2s',
+            }}
+          >
+            <div style={{
+              width: '8px', height: '8px', borderRadius: '50%',
+              background: chat?.isBotActive ? '#10b981' : '#9ca3af',
+            }} />
+            {chat?.isBotActive ? 'BOT ACTIVO' : 'BOT DESACTIVADO'}
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: 'none',
+              fontSize: '20px', cursor: 'pointer', color: '#9ca3af',
+            }}
+          >x</button>
+        </div>
       </div>
 
       <div style={{
