@@ -80,8 +80,15 @@ export class MessageProcessor {
         if (reply) {
           this.logger.log(`Enviando auto-respuesta a ${contact.whatsappPhone}: ${reply}`);
           
+          let phone = contact.whatsappPhone;
+          // Limpieza para Argentina: Meta no acepta el 9 (549... -> 54...)
+          if (phone.startsWith('549') || phone.startsWith('+549')) {
+            const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
+            phone = '54' + cleanPhone.slice(3);
+          }
+
           // 3. Enviar por WhatsApp
-          const externalId = await this.whatsAppSender.sendText(contact.whatsappPhone, reply);
+          const externalId = await this.whatsAppSender.sendText(phone, reply);
           
           // 4. Guardar respuesta del Bot en la DB
           const botMessage = await this.messagesService.create({
