@@ -29,10 +29,11 @@ export class WhatsAppSenderService {
     this.logger.log(`Enviando mensaje a: ${cleanTo} (original: ${to})`);
 
     const url = `/${this.phoneNumberId}/messages`;
-    this.logger.log(`DIAGNÓSTICO META:`);
-    this.logger.log(`- URL: ${url}`);
-    this.logger.log(`- Token (4 primeros): ${this.client.defaults.headers.Authorization?.toString().substring(0, 11)}...`);
-    this.logger.log(`- Phone ID: ${this.phoneNumberId}`);
+    console.log('=== DIAGNÓSTICO META INICIO ===');
+    console.log('URL DESTINO:', `https://graph.facebook.com/${url}`);
+    console.log('PHONE ID:', this.phoneNumberId);
+    console.log('TOKEN (PRIMEROS 15):', (this.config.get('WHATSAPP_API_TOKEN') || '').substring(0, 15));
+    console.log('=== DIAGNÓSTICO META FIN ===');
 
     try {
       const response = await this.client.post(
