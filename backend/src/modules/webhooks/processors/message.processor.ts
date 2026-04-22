@@ -52,6 +52,7 @@ export class MessageProcessor {
     await this.chatsService.updateLastMessage(chat.id, {
       preview: msg.text?.substring(0, 100) ?? '[Media]',
       timestamp: msg.timestamp,
+      direction: 'inbound',
     });
 
     await this.chatGateway.emitNewMessage({

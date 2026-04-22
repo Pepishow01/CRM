@@ -37,7 +37,7 @@ export default function InboxPage() {
               lastMessagePreview: message.content ?? '[Media]',
               lastMessageAt: message.sentAt,
               isLastMessagePrivate: message.isPrivate ?? false,
-              unreadCount: (exists.unreadCount || 0) + 1,
+              unreadCount: message.direction === 'inbound' ? (exists.unreadCount || 0) + 1 : 0,
             };
             return [updated, ...prev.filter((c) => c.id !== chatId)];
           } else {
@@ -62,7 +62,7 @@ export default function InboxPage() {
               lastMessagePreview: message.content ?? '[Media]',
               lastMessageAt: message.sentAt,
               isLastMessagePrivate: message.isPrivate ?? false,
-              unreadCount: (exists.unreadCount || 0) + 1,
+              unreadCount: message.direction === 'inbound' ? (exists.unreadCount || 0) + 1 : 0,
             };
             return [updated, ...prev.filter((c) => c.id !== chatId)];
           } else {

@@ -49,21 +49,27 @@ export class ChatsService {
 
   async updateLastMessage(
     chatId: string,
-    data: { preview: string; timestamp: Date; isPrivate?: boolean },
+    data: { preview: string; timestamp: Date; isPrivate?: boolean; direction: 'inbound' | 'outbound' },
   ): Promise<void> {
     const chat = await this.chatsRepo.findOne({ where: { id: chatId } });
     
-    // Solo actualizar si el mensaje es más nuevo que el último registrado
     if (chat && chat.lastMessageAt && data.timestamp < chat.lastMessageAt) {
       return;
     }
 
-    await this.chatsRepo.update(chatId, {
+    const updateData: any = {
       lastMessagePreview: data.preview,
       lastMessageAt: data.timestamp,
       isLastMessagePrivate: data.isPrivate ?? false,
-      unreadCount: () => 'unread_count + 1',
-    });
+    };
+
+    if (data.direction === 'inbound') {
+      updateData.unreadCount = () => 'unread_count + 1';
+    } else {
+      updateData.unreadCount = 0; // Si respondemos, marcamos como leído
+    }
+
+    await this.chatsRepo.update(chatId, updateData);
   }
 
   async findAll(userId?: string): Promise<Chat[]> {

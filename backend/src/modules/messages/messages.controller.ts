@@ -19,6 +19,7 @@ export class MessagesController {
     private messagesService: MessagesService,
     private chatsService: ChatsService,
     private whatsAppSender: WhatsAppSenderService,
+    private chatGateway: ChatGateway,
   ) {}
 
   @Get()
@@ -76,6 +77,15 @@ export class MessagesController {
       preview: body.text.substring(0, 100),
       timestamp: new Date(),
       isPrivate: body.isPrivate ?? false,
+      direction: 'outbound',
+    });
+
+    // Avisar al Frontend para actualizar la barra lateral
+    await this.chatGateway.emitNewMessage({
+      chatId,
+      message,
+      contact: chat.contact,
+      assignedTo: chat.assignedTo?.id ?? null,
     });
 
     return message;
