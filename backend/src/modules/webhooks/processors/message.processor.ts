@@ -17,7 +17,8 @@ export class MessageProcessor {
   ) {}
 
   async process(msg: NormalizedIncomingMessage): Promise<void> {
-    this.logger.log(`Procesando mensaje ${msg.externalId} de ${msg.channel}`);
+    this.logger.log(`RECIBIDO: ${msg.contentType} - ID: ${msg.externalId} - MediaId: ${msg.mediaId}`);
+    // console.log('DEBUG FULL MSG:', JSON.stringify(msg, null, 2));
 
     const existing = await this.messagesService.findByExternalId(msg.externalId);
     if (existing) {
@@ -39,7 +40,7 @@ export class MessageProcessor {
       externalId: msg.externalId,
       contentType: msg.contentType,
       content: msg.text,
-      mediaUrl: msg.mediaUrl,
+      mediaUrl: msg.mediaId ? `/media/${msg.mediaId}` : null,
       metaPayload: msg.rawPayload,
       sentAt: msg.timestamp,
     });

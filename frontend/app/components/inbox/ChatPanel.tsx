@@ -10,6 +10,55 @@ interface Message {
   content: string;
   sentAt: string;
   contentType: string;
+  mediaUrl?: string;
+}
+
+function MediaMessage({ msg }: { msg: Message }) {
+  const [mediaBlob, setMediaBlob] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (msg.mediaUrl && !mediaBlob) {
+      setLoading(true);
+      api.get(msg.mediaUrl, { responseType: 'blob' })
+        .then((res) => {
+          const url = URL.createObjectURL(res.data);
+          setMediaBlob(url);
+        })
+        .catch((err) => console.error('Error cargando media:', err))
+        .finally(() => setLoading(false));
+    }
+  }, [msg.mediaUrl]);
+
+  if (msg.contentType === 'image' || msg.contentType === 'sticker') {
+    return (
+      <div style={{ marginTop: '4px' }}>
+        {loading ? <div style={{ fontSize: '12px', padding: '10px' }}>Cargando imagen...</div> : 
+          mediaBlob ? (
+            <img src={mediaBlob} alt="Media" style={{ 
+              maxWidth: '100%', 
+              maxHeight: '300px', 
+              borderRadius: '8px',
+              display: 'block' 
+            }} />
+          ) : <div style={{ fontSize: '11px', opacity: 0.5 }}>[Imagen]</div>}
+        {msg.content && <div style={{ marginTop: '6px' }}>{msg.content}</div>}
+      </div>
+    );
+  }
+
+  if (msg.contentType === 'audio') {
+    return (
+      <div style={{ marginTop: '4px' }}>
+        {loading ? <div style={{ fontSize: '12px' }}>Cargando audio...</div> : 
+          mediaBlob ? (
+            <audio controls src={mediaBlob} style={{ maxWidth: '100%', height: '35px' }} />
+          ) : <div style={{ fontSize: '11px', opacity: 0.5 }}>[Audio]</div>}
+      </div>
+    );
+  }
+
+  return <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>;
 }
 
 interface Chat {
@@ -197,7 +246,7 @@ export default function ChatPanel({ chatId, onClose }: Props) {
               border: msg.direction === 'inbound' ? '1px solid #e5e7eb' : 'none',
               opacity: msg.id.startsWith('temp-') ? 0.7 : 1,
             }}>
-              {msg.content}
+              <MediaMessage msg={msg} />
               <div style={{
                 fontSize: '11px', marginTop: '4px', textAlign: 'right',
                 opacity: 0.6,
