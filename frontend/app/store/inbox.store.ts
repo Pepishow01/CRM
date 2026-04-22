@@ -84,4 +84,41 @@ export const useInboxStore = create<InboxState>((set, get) => ({
     set((s) => {
       const chat = s.chats.find((c) => c.id === chatId);
       if (!chat) return s;
-      const updated = { ...
+      const updatedChat = {
+        ...chat,
+        lastMessagePreview: preview,
+        lastMessageAt: timestamp,
+      };
+      const otherChats = s.chats.filter((c) => c.id !== chatId);
+      return { chats: [updatedChat, ...otherChats] };
+    }),
+
+  incrementUnread: (chatId) =>
+    set((s) => ({
+      chats: s.chats.map((c) =>
+        c.id === chatId ? { ...c, unreadCount: c.unreadCount + 1 } : c
+      ),
+    })),
+
+  clearUnread: (chatId) =>
+    set((s) => ({
+      chats: s.chats.map((c) =>
+        c.id === chatId ? { ...c, unreadCount: 0 } : c
+      ),
+    })),
+
+  setStatusFilter: (status) => set({ statusFilter: status }),
+
+  setSearchQuery: (q) => set({ searchQuery: q }),
+
+  filteredChats: () => {
+    const { chats, statusFilter, searchQuery } = get();
+    return chats.filter((chat) => {
+      const matchesStatus = statusFilter === 'all' || chat.status === statusFilter;
+      const matchesSearch =
+        chat.contact.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        chat.lastMessagePreview.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesStatus && matchesSearch;
+    });
+  },
+}));
