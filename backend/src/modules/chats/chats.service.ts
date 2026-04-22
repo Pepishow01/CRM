@@ -51,6 +51,13 @@ export class ChatsService {
     chatId: string,
     data: { preview: string; timestamp: Date },
   ): Promise<void> {
+    const chat = await this.chatsRepo.findOne({ where: { id: chatId } });
+    
+    // Solo actualizar si el mensaje es más nuevo que el último registrado
+    if (chat && chat.lastMessageAt && data.timestamp < chat.lastMessageAt) {
+      return;
+    }
+
     await this.chatsRepo.update(chatId, {
       lastMessagePreview: data.preview,
       lastMessageAt: data.timestamp,

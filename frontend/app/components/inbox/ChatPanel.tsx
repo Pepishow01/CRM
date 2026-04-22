@@ -96,7 +96,8 @@ export default function ChatPanel({ chatId, onClose }: Props) {
         setMessages((prev) => {
           const exists = prev.find((m) => m.id === data.message.id);
           if (exists) return prev;
-          return [...prev, data.message];
+          const newMessages = [...prev, data.message];
+          return newMessages.sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
         });
       }
     };
