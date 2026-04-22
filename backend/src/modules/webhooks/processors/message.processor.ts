@@ -72,7 +72,7 @@ export class MessageProcessor {
         
         // 1. Obtener contexto (últimos 10 mensajes)
         const historyData = await this.messagesService.findByChatId(chat.id, { page: 1, limit: 10 });
-        const conversation = this.aiService.formatConversation(historyData.reverse());
+        const conversation = this.aiService.formatConversation(historyData);
         
         // 2. Generar respuesta con Claude
         const fullReply = await this.aiService.generateAutoReply(conversation, contact.fullName);
