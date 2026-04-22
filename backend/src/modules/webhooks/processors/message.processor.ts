@@ -63,6 +63,8 @@ export class MessageProcessor {
 
     this.logger.log(`Mensaje ${msg.externalId} guardado y emitido por WebSocket`);
 
+    this.logger.log(`ESTADO BOT: chat.isBotActive=${chat.isBotActive}, type=${msg.contentType}, AI_ENABLED=${this.aiService.enabled}`);
+
     // --- LÓGICA DEL BOT AUTO-RESPUESTA ---
     if (chat.isBotActive && msg.contentType === 'text') {
       try {
