@@ -25,7 +25,7 @@ export class MessagesController {
   findAll(
     @Param('chatId') chatId: string,
     @Query('page') page = 1,
-    @Query('limit') limit = 50,
+    @Query('limit') limit = 200,
   ) {
     return this.messagesService.findByChatId(chatId, {
       page: Number(page),
@@ -56,7 +56,7 @@ export class MessagesController {
       if (phone.startsWith('549')) {
         phone = '54' + phone.slice(3);
       }
-externalId = await this.whatsAppSender.sendText(phone, body.text);
+      externalId = await this.whatsAppSender.sendText(phone, body.text);
     }
 
     // Guardar el mensaje en la DB
