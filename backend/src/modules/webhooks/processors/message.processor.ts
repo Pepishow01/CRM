@@ -71,49 +71,59 @@ export class MessageProcessor {
         this.logger.log(`Bot activo para chat ${chat.id}. Generando respuesta...`);
         
         // 1. Obtener contexto (últimos 10 mensajes)
-        const history = await this.messagesService.findByChatId(chat.id, { page: 1, limit: 10 });
-        const conversation = this.aiService.formatConversation(history.reverse());
+        const historyData = await this.messagesService.findByChatId(chat.id, { page: 1, limit: 10 });
+        const conversation = this.aiService.formatConversation(historyData.items.reverse());
         
         // 2. Generar respuesta con Claude
-        const reply = await this.aiService.generateAutoReply(conversation, contact.fullName);
+        const fullReply = await this.aiService.generateAutoReply(conversation, contact.fullName);
         
-        if (reply) {
-          this.logger.log(`Enviando auto-respuesta a ${contact.whatsappPhone}: ${reply}`);
-          
-          let phone = contact.whatsappPhone;
-          // Limpieza para Argentina: Meta no acepta el 9 (549... -> 54...)
-          if (phone.startsWith('549') || phone.startsWith('+549')) {
-            const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
-            phone = '54' + cleanPhone.slice(3);
-          }
+        if (fullReply) {
+          // Dividir la respuesta en mensajes separados si hay saltos de línea dobles o el separador ---
+          const messagesToSend = fullReply
+            .split(/\n\n|---/)
+            .map(m => m.trim())
+            .filter(m => m.length > 0);
 
-          // 3. Enviar por WhatsApp
-          const externalId = await this.whatsAppSender.sendText(phone, reply);
-          
-          // 4. Guardar respuesta del Bot en la DB
-          const botMessage = await this.messagesService.create({
-            chatId: chat.id,
-            direction: 'outbound',
-            channel: chat.channel,
-            externalId,
-            contentType: 'text',
-            content: reply,
-            sentAt: new Date(),
-          });
-          
-          // 5. Actualizar preview del chat
-          await this.chatsService.updateLastMessage(chat.id, {
-            preview: reply.substring(0, 100),
-            timestamp: new Date(),
-          });
-          
-          // 6. Avisar al Frontend por Socket para que el vendedor vea lo que el bot respondió
-          await this.chatGateway.emitNewMessage({
-            chatId: chat.id,
-            message: botMessage,
-            contact,
-            assignedTo: chat.assignedTo?.id ?? null,
-          });
+          for (const text of messagesToSend) {
+            this.logger.log(`Enviando parte de auto-respuesta: ${text}`);
+            
+            let phone = contact.whatsappPhone;
+            if (phone.startsWith('549') || phone.startsWith('+549')) {
+              const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
+              phone = '54' + cleanPhone.slice(3);
+            }
+
+            // 3. Enviar por WhatsApp
+            const externalId = await this.whatsAppSender.sendText(phone, text);
+            
+            // 4. Guardar respuesta del Bot en la DB
+            const botMessage = await this.messagesService.create({
+              chatId: chat.id,
+              direction: 'outbound',
+              channel: chat.channel,
+              externalId,
+              contentType: 'text',
+              content: text,
+              sentAt: new Date(),
+            });
+            
+            // 5. Actualizar preview del chat
+            await this.chatsService.updateLastMessage(chat.id, {
+              preview: text.substring(0, 100),
+              timestamp: new Date(),
+            });
+            
+            // 6. Avisar al Frontend
+            await this.chatGateway.emitNewMessage({
+              chatId: chat.id,
+              message: botMessage,
+              contact,
+              assignedTo: chat.assignedTo?.id ?? null,
+            });
+
+            // Pequeña pausa para que lleguen en orden
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
         }
       } catch (err) {
         this.logger.error(`Error en el Bot Auto-Respuesta: ${err.message}`);
