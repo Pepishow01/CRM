@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import { connectSocket, disconnectSocket } from '../lib/socket';
 import ChatPanel from '../components/inbox/ChatPanel';
+import SettingsModal from '../components/SettingsModal';
 
 export default function InboxPage() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function InboxPage() {
   const [chats, setChats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
@@ -136,6 +138,12 @@ export default function InboxPage() {
         <h1 style={{ fontSize: '18px', fontWeight: 600, margin: 0 }}>CRM Ventas</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '13px', color: '#6b7280' }}>{user.fullName}</span>
+          <button onClick={() => setIsSettingsOpen(true)} style={{
+            padding: '5px 12px', borderRadius: '6px',
+            border: '1px solid #e5e7eb', background: '#fff',
+            fontSize: '13px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: '4px'
+          }}>⚙️ Ajustes</button>
           <button onClick={handleLogout} style={{
             padding: '5px 12px', borderRadius: '6px',
             border: '1px solid #e5e7eb', background: '#fff',
@@ -143,6 +151,8 @@ export default function InboxPage() {
           }}>Salir</button>
         </div>
       </div>
+
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div style={{

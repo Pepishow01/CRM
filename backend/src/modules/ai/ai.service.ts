@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
+import { SettingsService } from '../settings/settings.service';
 import {
   CLASSIFY_LEAD_PROMPT,
   SUGGEST_REPLIES_PROMPT,
@@ -15,7 +16,10 @@ export class AiService {
   private readonly model: string;
   readonly enabled: boolean;
 
-  constructor(private config: ConfigService) {
+  constructor(
+    private config: ConfigService,
+    private settingsService: SettingsService,
+  ) {
     this.enabled = config.get('AI_ENABLED') === 'true';
     this.model = config.get('AI_MODEL') || 'claude-sonnet-4-5';
 
@@ -51,10 +55,13 @@ export class AiService {
     if (!this.enabled) return null;
 
     try {
+      const customPrompt = await this.settingsService.get('AI_SUGGEST_REPLIES_PROMPT');
+      const systemPrompt = customPrompt || SUGGEST_REPLIES_PROMPT;
+
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: 800,
-        system: SUGGEST_REPLIES_PROMPT,
+        system: systemPrompt,
         messages: [
           {
             role: 'user',
@@ -104,10 +111,13 @@ Generá 3 sugerencias de respuesta para el último mensaje del cliente.
     if (!this.enabled) return null;
 
     try {
+      const customPrompt = await this.settingsService.get('AI_AUTO_REPLY_PROMPT');
+      const systemPrompt = customPrompt || AUTO_REPLY_PROMPT;
+
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: 400,
-        system: AUTO_REPLY_PROMPT,
+        system: systemPrompt,
         messages: [
           {
             role: 'user',
@@ -123,7 +133,7 @@ Generá la respuesta automática para el último mensaje del cliente.
         ],
       });
 
-      return response.content?.[0]?.['text'] ?? null;
+      return (response.content?.[0] as any)?.text ?? null;
     } catch (err) {
       this.logger.error(`Error generando respuesta automática: ${err.message}`);
       return null;
