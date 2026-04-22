@@ -142,8 +142,8 @@ Generá la respuesta automática para el último mensaje del cliente.
 
   formatConversation(messages: Array<{ direction: string; content: string }>): string {
     return messages
-      .filter((m) => m.content)
-      .map((m) => `${m.direction === 'inbound' ? 'Cliente' : 'Vendedor'}: ${m.content}`)
+      .filter((m) => m.content && m.content.trim().length > 0)
+      .map((m) => `${m.direction === 'inbound' ? 'Cliente' : 'Tú (Asistente IA)'}: ${m.content}`)
       .join('\n');
   }
 
