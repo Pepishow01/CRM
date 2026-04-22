@@ -14,7 +14,7 @@ import { ConfigService } from '@nestjs/config';
 
 @WebSocketGateway({
   cors: {
-    origin: 'http://localhost:3000',
+    origin: [process.env.FRONTEND_URL || 'http://localhost:3000', 'https://crmpepi.experienciadeviajes.com'],
     credentials: true,
   },
 })
