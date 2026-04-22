@@ -5,7 +5,18 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bodyParser: false,
+  });
+
+  const express = require('express');
+  app.use(express.json({
+    verify: (req: any, res: any, buf: Buffer) => {
+      req['rawBody'] = buf;
+    },
+    limit: '10mb',
+  }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   app.setGlobalPrefix('api/v1');
 
