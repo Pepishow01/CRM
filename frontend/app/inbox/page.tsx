@@ -36,6 +36,7 @@ export default function InboxPage() {
               ...exists,
               lastMessagePreview: message.content ?? '[Media]',
               lastMessageAt: message.sentAt,
+              isLastMessagePrivate: message.isPrivate ?? false,
               unreadCount: (exists.unreadCount || 0) + 1,
             };
             return [updated, ...prev.filter((c) => c.id !== chatId)];
@@ -60,6 +61,7 @@ export default function InboxPage() {
               ...exists,
               lastMessagePreview: message.content ?? '[Media]',
               lastMessageAt: message.sentAt,
+              isLastMessagePrivate: message.isPrivate ?? false,
               unreadCount: (exists.unreadCount || 0) + 1,
             };
             return [updated, ...prev.filter((c) => c.id !== chatId)];
@@ -221,8 +223,9 @@ export default function InboxPage() {
                   <span style={{
                     fontSize: '12px', color: '#6b7280',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    maxWidth: '160px',
+                    maxWidth: '160px', display: 'flex', alignItems: 'center', gap: '4px'
                   }}>
+                    {chat.isLastMessagePrivate && <span title="Nota privada">🔒</span>}
                     {chat.lastMessagePreview ?? 'Sin mensajes'}
                   </span>
                   {chat.unreadCount > 0 && (

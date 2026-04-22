@@ -49,7 +49,7 @@ export class ChatsService {
 
   async updateLastMessage(
     chatId: string,
-    data: { preview: string; timestamp: Date },
+    data: { preview: string; timestamp: Date; isPrivate?: boolean },
   ): Promise<void> {
     const chat = await this.chatsRepo.findOne({ where: { id: chatId } });
     
@@ -61,6 +61,7 @@ export class ChatsService {
     await this.chatsRepo.update(chatId, {
       lastMessagePreview: data.preview,
       lastMessageAt: data.timestamp,
+      isLastMessagePrivate: data.isPrivate ?? false,
       unreadCount: () => 'unread_count + 1',
     });
   }

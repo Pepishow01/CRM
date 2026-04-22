@@ -51,6 +51,9 @@ export class Chat {
   @Column({ name: 'last_message_preview', nullable: true })
   lastMessagePreview: string;
 
+  @Column({ name: 'is_last_message_private', default: false })
+  isLastMessagePrivate: boolean;
+
   @Column({ name: 'is_bot_active', default: false })
   isBotActive: boolean;
 

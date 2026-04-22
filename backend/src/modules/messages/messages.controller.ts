@@ -75,6 +75,7 @@ export class MessagesController {
     await this.chatsService.updateLastMessage(chatId, {
       preview: body.text.substring(0, 100),
       timestamp: new Date(),
+      isPrivate: body.isPrivate ?? false,
     });
 
     return message;
