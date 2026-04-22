@@ -69,8 +69,8 @@ export class MessageProcessor {
         this.logger.log(`Bot activo para chat ${chat.id}. Generando respuesta...`);
         
         // 1. Obtener contexto (últimos 10 mensajes)
-        const history = await this.messagesService.findByChatId(chat.id, { limit: 10 });
-        const conversation = this.aiService.formatConversation(history.items.reverse());
+        const history = await this.messagesService.findByChatId(chat.id, { page: 1, limit: 10 });
+        const conversation = this.aiService.formatConversation(history.reverse());
         
         // 2. Generar respuesta con Claude
         const reply = await this.aiService.generateAutoReply(conversation, contact.fullName);
