@@ -1,10 +1,13 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import api from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import AiPanel from './AiPanel';
 import TemplatesModal from './TemplatesModal';
-import EmojiPicker from 'emoji-picker-react';
+
+// Importación dinámica para evitar errores de SSR con el selector de emojis
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 interface Message {
   id: string;
@@ -81,22 +84,41 @@ export default function ChatPanel({ chatId, onClose }: { chatId: string; onClose
     loadChat();
     loadMessages();
     const socket = getSocket();
+    
     const handleNewMessage = (data: any) => {
       if (data.chatId === chatId) {
         setMessages((prev) => {
           if (prev.find(m => m.id === data.message.id)) return prev;
-          return [...prev, data.message].sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+          const newList = [...prev, data.message];
+          return newList.sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
         });
       }
     };
+
     socket.on('chat:new-message', handleNewMessage);
-    return () => socket.off('chat:new-message', handleNewMessage);
+    
+    return () => {
+      socket.off('chat:new-message', handleNewMessage);
+    };
   }, [chatId]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => { 
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+  }, [messages]);
 
-  async function loadChat() { const r = await api.get(`/chats/${chatId}`); setChat(r.data); }
-  async function loadMessages() { const r = await api.get(`/chats/${chatId}/messages`); setMessages(r.data); }
+  async function loadChat() { 
+    try {
+      const r = await api.get(`/chats/${chatId}`); 
+      setChat(r.data); 
+    } catch (err) { console.error(err); }
+  }
+  
+  async function loadMessages() { 
+    try {
+      const r = await api.get(`/chats/${chatId}/messages`); 
+      setMessages(r.data); 
+    } catch (err) { console.error(err); }
+  }
 
   async function handleSend(isPrivate: boolean = false) {
     if (!text.trim() || sending) return;
@@ -105,7 +127,11 @@ export default function ChatPanel({ chatId, onClose }: { chatId: string; onClose
     setSending(true);
     try {
       const r = await api.post(`/chats/${chatId}/messages`, { text: content, isPrivate });
-      setMessages((prev) => [...prev, r.data]);
+      // El mensaje llegará por socket, pero lo añadimos localmente para feedback inmediato
+      setMessages((prev) => {
+        if (prev.find(m => m.id === r.data.id)) return prev;
+        return [...prev, r.data];
+      });
       // NO reseteamos isPrivateMode a pedido del usuario
     } catch (err) {
       setText(content);
@@ -170,7 +196,10 @@ export default function ChatPanel({ chatId, onClose }: { chatId: string; onClose
   };
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(isPrivateMode); }
+    if (e.key === 'Enter' && !e.shiftKey) { 
+      e.preventDefault(); 
+      handleSend(isPrivateMode); 
+    }
   }
 
   const insertSignature = () => setText(prev => prev + `\n\nSaludos Pedro - TDH Villa Cabrera`);
