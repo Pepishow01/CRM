@@ -25,7 +25,7 @@ export class MessagesController {
   findAll(
     @Param('chatId') chatId: string,
     @Query('page') page = 1,
-    @Query('limit') limit = 200,
+    @Query('limit') limit = 1000,
   ) {
     return this.messagesService.findByChatId(chatId, {
       page: Number(page),
