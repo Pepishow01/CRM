@@ -50,6 +50,9 @@ export class Message {
   @Column({ name: 'is_read', default: false })
   isRead: boolean;
 
+  @Column({ name: 'is_private', default: false })
+  isPrivate: boolean;
+
   @Column({ name: 'sent_at' })
   sentAt: Date;
 

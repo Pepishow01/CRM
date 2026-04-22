@@ -11,6 +11,7 @@ interface Message {
   sentAt: string;
   contentType: string;
   mediaUrl?: string;
+  isPrivate?: boolean;
 }
 
 function MediaMessage({ msg }: { msg: Message }) {
@@ -83,6 +84,7 @@ export default function ChatPanel({ chatId, onClose }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [isPrivateMode, setIsPrivateMode] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -133,7 +135,7 @@ export default function ChatPanel({ chatId, onClose }: Props) {
     }
   }
 
-  async function handleSend() {
+  async function handleSend(isPrivate: boolean = false) {
     if (!text.trim() || sending) return;
     const content = text.trim();
     setText('');
@@ -145,14 +147,16 @@ export default function ChatPanel({ chatId, onClose }: Props) {
       content,
       sentAt: new Date().toISOString(),
       contentType: 'text',
+      isPrivate
     };
     setMessages((prev) => [...prev, temp]);
 
     try {
-      const r = await api.post(`/chats/${chatId}/messages`, { text: content });
+      const r = await api.post(`/chats/${chatId}/messages`, { text: content, isPrivate });
       setMessages((prev) =>
         prev.map((m) => (m.id === temp.id ? r.data : m))
       );
+      if (isPrivate) setIsPrivateMode(false); // Volver a modo normal tras nota
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== temp.id));
       setText(content);
@@ -164,7 +168,7 @@ export default function ChatPanel({ chatId, onClose }: Props) {
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      handleSend(isPrivateMode);
     }
   }
 
@@ -190,6 +194,11 @@ export default function ChatPanel({ chatId, onClose }: Props) {
     }
   };
 
+  const insertSignature = () => {
+    const signature = `\n\nSaludos Pedro - TDH Villa Cabrera`;
+    setText(prev => prev + signature);
+  };
+
   const STATUS_LABELS: Record<string, string> = {
     new: 'Nuevo',
     in_progress: 'En progreso',
@@ -198,12 +207,18 @@ export default function ChatPanel({ chatId, onClose }: Props) {
     lost: 'Perdido',
   };
 
+  const toolButtonStyle = {
+    width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    borderRadius: '8px', border: 'none', background: '#f9fafb', cursor: 'pointer',
+    fontSize: '18px', color: '#6b7280', transition: 'background 0.2s'
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* HEADER */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: '12px',
-        padding: '12px 16px',
-        borderBottom: '1px solid #e5e7eb',
+        padding: '12px 16px', borderBottom: '1px solid #e5e7eb',
         background: '#fff', flexShrink: 0,
       }}>
         <div style={{
@@ -224,70 +239,46 @@ export default function ChatPanel({ chatId, onClose }: Props) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button
-            onClick={toggleBot}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '6px 12px', borderRadius: '20px',
-              border: '1px solid',
-              borderColor: chat?.isBotActive ? '#10b981' : '#d1d5db',
-              background: chat?.isBotActive ? '#ecfdf5' : '#fff',
-              color: chat?.isBotActive ? '#059669' : '#374151',
-              fontSize: '11px', fontWeight: '600',
-              cursor: 'pointer', transition: 'all 0.2s',
-            }}
-          >
-            <div style={{
-              width: '8px', height: '8px', borderRadius: '50%',
-              background: chat?.isBotActive ? '#10b981' : '#9ca3af',
-            }} />
+          <button onClick={toggleBot} style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '6px 12px', borderRadius: '20px', border: '1px solid',
+            borderColor: chat?.isBotActive ? '#10b981' : '#d1d5db',
+            background: chat?.isBotActive ? '#ecfdf5' : '#fff',
+            color: chat?.isBotActive ? '#059669' : '#374151',
+            fontSize: '11px', fontWeight: '600', cursor: 'pointer',
+          }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: chat?.isBotActive ? '#10b981' : '#9ca3af' }} />
             {chat?.isBotActive ? 'BOT ACTIVO' : 'BOT DESACTIVADO'}
           </button>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none', border: 'none',
-              fontSize: '20px', cursor: 'pointer', color: '#9ca3af',
-            }}
-          >x</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}>x</button>
         </div>
       </div>
 
+      {/* ÁREA DE MENSAJES */}
       <div style={{
         flex: 1, overflowY: 'auto', padding: '16px',
         display: 'flex', flexDirection: 'column', gap: '4px',
         background: '#f9fafb',
       }}>
-        {messages.length === 0 && (
-          <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: '13px', marginTop: '20px' }}>
-            No hay mensajes todavía
-          </div>
-        )}
-
         {messages.map((msg) => (
           <div key={msg.id} style={{
             display: 'flex',
             justifyContent: msg.direction === 'outbound' ? 'flex-end' : 'flex-start',
-            marginBottom: '4px',
+            marginBottom: '8px',
           }}>
             <div style={{
-              maxWidth: '70%', padding: '8px 12px',
-              borderRadius: msg.direction === 'outbound'
-                ? '16px 16px 4px 16px'
-                : '16px 16px 16px 4px',
-              background: msg.direction === 'outbound' ? '#4f46e5' : '#fff',
-              color: msg.direction === 'outbound' ? '#fff' : '#111827',
+              maxWidth: '75%', padding: '10px 14px',
+              borderRadius: msg.direction === 'outbound' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+              background: msg.isPrivate ? '#fef9c3' : (msg.direction === 'outbound' ? '#4f46e5' : '#fff'),
+              color: msg.isPrivate ? '#854d0e' : (msg.direction === 'outbound' ? '#fff' : '#111827'),
               fontSize: '14px', lineHeight: '1.5',
-              border: msg.direction === 'inbound' ? '1px solid #e5e7eb' : 'none',
-              opacity: msg.id.startsWith('temp-') ? 0.7 : 1,
+              border: msg.isPrivate ? '1px solid #fde047' : (msg.direction === 'inbound' ? '1px solid #e5e7eb' : 'none'),
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
             }}>
+              {msg.isPrivate && <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '4px', textTransform: 'uppercase', color: '#a16207' }}>📌 Nota Privada</div>}
               <MediaMessage msg={msg} />
-              <div style={{
-                fontSize: '11px', marginTop: '4px', textAlign: 'right',
-                opacity: 0.6,
-              }}>
+              <div style={{ fontSize: '10px', marginTop: '4px', textAlign: 'right', opacity: 0.6 }}>
                 {formatTime(msg.sentAt)}
-                {msg.direction === 'outbound' && ' vv'}
               </div>
             </div>
           </div>
@@ -295,50 +286,75 @@ export default function ChatPanel({ chatId, onClose }: Props) {
         <div ref={bottomRef} />
       </div>
 
-      <AiPanel
-        chatId={chatId}
-        onUseSuggestion={(suggText) => {
-          setText(suggText);
-        }}
-      />
+      <AiPanel chatId={chatId} onUseSuggestion={(s) => setText(s)} />
 
-      <div style={{
-        padding: '12px 16px',
-        borderTop: '1px solid #e5e7eb',
-        background: '#fff', flexShrink: 0,
-      }}>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+      {/* ÁREA DE ENTRADA PRO (Basada en la foto) */}
+      <div style={{ padding: '12px 16px', background: '#fff', borderTop: '1px solid #e5e7eb' }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+          <button 
+            onClick={() => setIsPrivateMode(false)}
+            style={{ 
+              padding: '8px 16px', borderRadius: '12px', border: 'none',
+              background: !isPrivateMode ? '#f3f4f6' : 'transparent',
+              fontWeight: !isPrivateMode ? 600 : 500,
+              fontSize: '14px', cursor: 'pointer', color: !isPrivateMode ? '#111827' : '#6b7280',
+              transition: 'all 0.2s'
+            }}
+          >Responder</button>
+          <button 
+            onClick={() => setIsPrivateMode(true)}
+            style={{ 
+              padding: '8px 16px', borderRadius: '12px', border: 'none',
+              background: isPrivateMode ? '#fef9c3' : 'transparent',
+              fontWeight: isPrivateMode ? 600 : 500,
+              fontSize: '14px', cursor: 'pointer', color: isPrivateMode ? '#854d0e' : '#6b7280',
+              transition: 'all 0.2s'
+            }}
+          >Nota privada</button>
+        </div>
+
+        <div style={{ 
+          border: '1px solid #e5e7eb', borderRadius: '16px', padding: '12px',
+          background: isPrivateMode ? '#fffbeb' : '#fff',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+          transition: 'all 0.2s'
+        }}>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Escribir mensaje... (Enter para enviar)"
-            rows={1}
+            placeholder={isPrivateMode ? "Escribe una nota interna para el equipo..." : "Shift + enter for new line. Comience con '/' para seleccionar una respuesta predefinida."}
             style={{
-              flex: 1, padding: '10px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '12px', fontSize: '14px',
-              resize: 'none', outline: 'none',
-              fontFamily: 'sans-serif',
-              lineHeight: '1.5',
+              width: '100%', minHeight: '80px', border: 'none', outline: 'none',
+              background: 'transparent', fontSize: '15px', resize: 'none', padding: '4px',
+              color: '#1f2937'
             }}
           />
-          <button
-            onClick={handleSend}
-            disabled={!text.trim() || sending}
-            style={{
-              width: '42px', height: '42px', borderRadius: '50%',
-              border: 'none',
-              background: text.trim() && !sending ? '#16a34a' : '#d1d5db',
-              color: '#fff', cursor: text.trim() ? 'pointer' : 'not-allowed',
-              fontSize: '18px', flexShrink: 0,
-            }}
-          >
-            up
-          </button>
-        </div>
-        <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
-          Enter para enviar · Shift+Enter para nueva linea
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button style={toolButtonStyle} title="Emojis">😊</button>
+              <button style={toolButtonStyle} title="Adjuntar archivo">📎</button>
+              <button style={toolButtonStyle} title="Grabar audio">🎤</button>
+              <button onClick={insertSignature} style={toolButtonStyle} title="Insertar firma">✍️</button>
+              <button style={toolButtonStyle} title="Plantillas de WhatsApp">💬</button>
+            </div>
+
+            <button
+              onClick={() => handleSend(isPrivateMode)}
+              disabled={!text.trim() || sending}
+              style={{
+                padding: '10px 24px', borderRadius: '12px', border: 'none',
+                background: isPrivateMode ? '#f59e0b' : '#3b82f6',
+                color: '#fff', fontWeight: 600, fontSize: '14px',
+                cursor: 'pointer', transition: 'all 0.2s',
+                opacity: (!text.trim() || sending) ? 0.6 : 1,
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+              }}
+            >
+              {isPrivateMode ? 'Guardar nota' : 'Enviar (↩)'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

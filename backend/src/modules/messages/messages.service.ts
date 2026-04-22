@@ -20,6 +20,7 @@ export class MessagesService {
     mediaUrl?: string;
     metaPayload?: Record<string, any>;
     sentAt: Date;
+    isPrivate?: boolean;
   }): Promise<Message> {
     const message = this.messagesRepo.create({
       chatId: data.chatId,
@@ -30,6 +31,7 @@ export class MessagesService {
       mediaUrl: data.mediaUrl,
       metaPayload: data.metaPayload ?? {},
       sentAt: data.sentAt,
+      isPrivate: data.isPrivate ?? false,
     });
     return this.messagesRepo.save(message);
   }

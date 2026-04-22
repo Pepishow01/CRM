@@ -36,9 +36,9 @@ export class MessagesController {
   @Post()
   async sendMessage(
     @Param('chatId') chatId: string,
-    @Body() body: { text: string },
+    @Body() body: { text: string; isPrivate?: boolean },
   ) {
-    this.logger.log(`Intentando enviar mensaje a chat ${chatId}. Texto: ${body.text?.substring(0, 20)}...`);
+    this.logger.log(`Intentando enviar mensaje a chat ${chatId}. Privado: ${body.isPrivate}. Texto: ${body.text?.substring(0, 20)}...`);
     const chat = await this.chatsService.findById(chatId);
     if (!chat) {
       this.logger.error(`Chat ${chatId} no encontrado`);
@@ -47,8 +47,8 @@ export class MessagesController {
 
     let externalId: string | undefined;
 
-    // Enviar por WhatsApp si el canal es whatsapp
-    if (chat.channel === 'whatsapp' && chat.contact?.whatsappPhone) {
+    // Enviar por WhatsApp si el canal es whatsapp Y NO ES PRIVADO
+    if (!body.isPrivate && chat.channel === 'whatsapp' && chat.contact?.whatsappPhone) {
       let phone = chat.contact.whatsappPhone.startsWith('+')
         ? chat.contact.whatsappPhone.slice(1)
         : chat.contact.whatsappPhone;
@@ -68,6 +68,7 @@ export class MessagesController {
       contentType: 'text',
       content: body.text,
       sentAt: new Date(),
+      isPrivate: body.isPrivate ?? false,
     });
 
     // Actualizar preview del chat
