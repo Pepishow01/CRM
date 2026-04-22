@@ -4,12 +4,13 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
+import * as express from 'express';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
   });
 
-  const express = require('express');
   app.use(express.json({
     verify: (req: any, res: any, buf: Buffer) => {
       req['rawBody'] = buf;

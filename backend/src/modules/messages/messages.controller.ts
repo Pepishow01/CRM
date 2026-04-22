@@ -13,6 +13,8 @@ import { WhatsAppSenderService } from './whatsapp-sender.service';
 @UseGuards(JwtAuthGuard)
 @Controller('chats/:chatId/messages')
 export class MessagesController {
+  private readonly logger = new Logger(MessagesController.name);
+
   constructor(
     private messagesService: MessagesService,
     private chatsService: ChatsService,
@@ -36,7 +38,12 @@ export class MessagesController {
     @Param('chatId') chatId: string,
     @Body() body: { text: string },
   ) {
+    this.logger.log(`Intentando enviar mensaje a chat ${chatId}. Texto: ${body.text?.substring(0, 20)}...`);
     const chat = await this.chatsService.findById(chatId);
+    if (!chat) {
+      this.logger.error(`Chat ${chatId} no encontrado`);
+      throw new Error('Chat no encontrado');
+    }
 
     let externalId: string | undefined;
 
