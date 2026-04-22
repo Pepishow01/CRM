@@ -75,4 +75,8 @@ export class ChatsService {
   async updateStatus(chatId: string, status: string): Promise<void> {
     await this.chatsRepo.update(chatId, { status: status as any });
   }
+
+  async toggleBot(chatId: string, active: boolean): Promise<void> {
+    await this.chatsRepo.update(chatId, { isBotActive: active });
+  }
 }

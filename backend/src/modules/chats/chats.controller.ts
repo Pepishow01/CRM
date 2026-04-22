@@ -30,4 +30,12 @@ export class ChatsController {
   ) {
     return this.chatsService.updateStatus(id, body.status);
   }
+
+  @Patch(':id/bot')
+  toggleBot(
+    @Param('id') id: string,
+    @Body() body: { active: boolean },
+  ) {
+    return this.chatsService.toggleBot(id, body.active);
+  }
 }

@@ -24,7 +24,7 @@ import { HealthModule } from './modules/health/health.module';
         url: config.get('database.url'),
         entities: [__dirname + '/modules/**/entities/*.entity{.ts,.js}'],
         autoLoadEntities: true,
-        synchronize: process.env.NODE_ENV === 'development',
+        synchronize: true,
         logging: false,
       }),
     }),

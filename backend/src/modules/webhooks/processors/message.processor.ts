@@ -4,6 +4,8 @@ import { ChatsService } from '../../chats/chats.service';
 import { MessagesService } from '../../messages/messages.service';
 import { ChatGateway } from '../../chats/chat.gateway';
 import { NormalizedIncomingMessage } from '../dto/normalized-message.dto';
+import { AiService } from '../../ai/ai.service';
+import { WhatsAppSenderService } from '../../messages/whatsapp-sender.service';
 
 @Injectable()
 export class MessageProcessor {
@@ -14,6 +16,8 @@ export class MessageProcessor {
     private chatsService: ChatsService,
     private messagesService: MessagesService,
     private chatGateway: ChatGateway,
+    private aiService: AiService,
+    private whatsAppSender: WhatsAppSenderService,
   ) {}
 
   async process(msg: NormalizedIncomingMessage): Promise<void> {
@@ -58,5 +62,53 @@ export class MessageProcessor {
     });
 
     this.logger.log(`Mensaje ${msg.externalId} guardado y emitido por WebSocket`);
+
+    // --- LÓGICA DEL BOT AUTO-RESPUESTA ---
+    if (chat.isBotActive && msg.contentType === 'text') {
+      try {
+        this.logger.log(`Bot activo para chat ${chat.id}. Generando respuesta...`);
+        
+        // 1. Obtener contexto (últimos 10 mensajes)
+        const history = await this.messagesService.findByChatId(chat.id, { limit: 10 });
+        const conversation = this.aiService.formatConversation(history.items.reverse());
+        
+        // 2. Generar respuesta con Claude
+        const reply = await this.aiService.generateAutoReply(conversation, contact.fullName);
+        
+        if (reply) {
+          this.logger.log(`Enviando auto-respuesta a ${contact.whatsappPhone}: ${reply}`);
+          
+          // 3. Enviar por WhatsApp
+          const externalId = await this.whatsAppSender.sendText(contact.whatsappPhone, reply);
+          
+          // 4. Guardar respuesta del Bot en la DB
+          const botMessage = await this.messagesService.create({
+            chatId: chat.id,
+            direction: 'outbound',
+            channel: chat.channel,
+            externalId,
+            contentType: 'text',
+            content: reply,
+            sentAt: new Date(),
+          });
+          
+          // 5. Actualizar preview del chat
+          await this.chatsService.updateLastMessage(chat.id, {
+            preview: reply.substring(0, 100),
+            timestamp: new Date(),
+          });
+          
+          // 6. Avisar al Frontend por Socket para que el vendedor vea lo que el bot respondió
+          await this.chatGateway.emitNewMessage({
+            chatId: chat.id,
+            message: botMessage,
+            contact,
+            assignedTo: chat.assignedTo?.id ?? null,
+          });
+        }
+      } catch (err) {
+        this.logger.error(`Error en el Bot Auto-Respuesta: ${err.message}`);
+      }
+    }
   }
 }

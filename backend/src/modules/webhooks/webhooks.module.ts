@@ -6,8 +6,10 @@ import { ContactsModule } from '../contacts/contacts.module';
 import { ChatsModule } from '../chats/chats.module';
 import { MessagesModule } from '../messages/messages.module';
 
+import { AiModule } from '../ai/ai.module';
+
 @Module({
-  imports: [ContactsModule, ChatsModule, MessagesModule],
+  imports: [ContactsModule, ChatsModule, MessagesModule, AiModule],
   controllers: [WebhooksController],
   providers: [WebhooksService, MessageProcessor],
   exports: [WebhooksService],

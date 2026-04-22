@@ -5,6 +5,7 @@ import {
   CLASSIFY_LEAD_PROMPT,
   SUGGEST_REPLIES_PROMPT,
   EXTRACT_TRAVEL_DATA_PROMPT,
+  AUTO_REPLY_PROMPT,
 } from './prompts/system.prompts';
 
 @Injectable()
@@ -95,6 +96,36 @@ Generá 3 sugerencias de respuesta para el último mensaje del cliente.
       return this.parseJson(response);
     } catch (err) {
       this.logger.error(`Error extrayendo datos: ${err.message}`);
+      return null;
+    }
+  }
+
+  async generateAutoReply(conversation: string, contactName?: string): Promise<string | null> {
+    if (!this.enabled) return null;
+
+    try {
+      const response = await this.client.messages.create({
+        model: this.model,
+        max_tokens: 400,
+        system: AUTO_REPLY_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content: `
+Nombre del cliente: ${contactName ?? 'desconocido'}
+
+Conversación:
+${conversation}
+
+Generá la respuesta automática para el último mensaje del cliente.
+            `.trim(),
+          },
+        ],
+      });
+
+      return response.content?.[0]?.['text'] ?? null;
+    } catch (err) {
+      this.logger.error(`Error generando respuesta automática: ${err.message}`);
       return null;
     }
   }
