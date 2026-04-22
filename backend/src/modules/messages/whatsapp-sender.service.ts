@@ -57,9 +57,9 @@ export class WhatsAppSenderService {
             'Token de WhatsApp inválido o expirado. Renovalo en Meta Developer Console.',
           );
         }
-        if (metaError.code === 131030) {
+        if (metaError.code === 131030 || metaError.code === 131005) {
           throw new BadRequestException(
-            `El número ${to} no está autorizado. En Meta Developer Console → WhatsApp → API Setup, agregalo como destinatario de prueba.`,
+            `Acceso Denegado. Si es un número de prueba, agregalo como destinatario en Meta Developer Console (WhatsApp > API Setup). Si es un número real, verifica que el Token tenga permisos 'whatsapp_business_messaging'.`,
           );
         }
         if (metaError.code === 131047) {
