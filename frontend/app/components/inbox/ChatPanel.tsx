@@ -113,8 +113,10 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
     };
   }, [chatId]);
 
-  useEffect(() => { 
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    });
   }, [messages]);
 
   async function loadChat() {
@@ -250,20 +252,32 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
 
       {/* MESSAGES */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px', background: '#f9fafb', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {messages.map((msg) => (
-          <div key={msg.id} style={{ display: 'flex', justifyContent: msg.direction === 'outbound' ? 'flex-end' : 'flex-start' }}>
-            <div style={{
-              maxWidth: '75%', padding: '10px 14px', borderRadius: '12px',
-              background: msg.isPrivate ? '#fef9c3' : (msg.direction === 'outbound' ? '#4f46e5' : '#fff'),
-              color: msg.isPrivate ? '#854d0e' : (msg.direction === 'outbound' ? '#fff' : '#111827'),
-              fontSize: '14px', border: msg.isPrivate ? '1px solid #fde047' : 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-            }}>
-              {msg.isPrivate && <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#a16207' }}>📌 NOTA PRIVADA</div>}
-              <MediaMessage msg={msg} />
-              <div style={{ fontSize: '10px', marginTop: '4px', textAlign: 'right', opacity: 0.6 }}>{new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+        {messages.map((msg) => {
+          // Activity messages: centered gray pill
+          if (msg.contentType === 'activity') {
+            return (
+              <div key={msg.id} style={{ display: 'flex', justifyContent: 'center', margin: '4px 0' }}>
+                <div style={{ background: '#e5e7eb', color: '#6b7280', fontSize: '11px', borderRadius: '999px', padding: '3px 12px', maxWidth: '80%', textAlign: 'center' }}>
+                  {msg.content}
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div key={msg.id} style={{ display: 'flex', justifyContent: msg.direction === 'outbound' ? 'flex-end' : 'flex-start' }}>
+              <div style={{
+                maxWidth: '75%', padding: '10px 14px', borderRadius: '12px',
+                background: msg.isPrivate ? '#fef9c3' : (msg.direction === 'outbound' ? '#4f46e5' : '#fff'),
+                color: msg.isPrivate ? '#854d0e' : (msg.direction === 'outbound' ? '#fff' : '#111827'),
+                fontSize: '14px', border: msg.isPrivate ? '1px solid #fde047' : 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}>
+                {msg.isPrivate && <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#a16207' }}>📌 NOTA PRIVADA</div>}
+                <MediaMessage msg={msg} />
+                <div style={{ fontSize: '10px', marginTop: '4px', textAlign: 'right', opacity: 0.6 }}>{new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={bottomRef} />
       </div>
 

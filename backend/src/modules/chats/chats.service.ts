@@ -2,13 +2,28 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Chat, ChannelType } from './entities/chat.entity';
+import { Message, MessageDirection } from '../messages/entities/message.entity';
 
 @Injectable()
 export class ChatsService {
   constructor(
     @InjectRepository(Chat)
     private chatsRepo: Repository<Chat>,
+    @InjectRepository(Message)
+    private messagesRepo: Repository<Message>,
   ) {}
+
+  async createActivity(chatId: string, text: string): Promise<Message> {
+    const msg = this.messagesRepo.create({
+      chatId,
+      direction: MessageDirection.OUTBOUND,
+      contentType: 'activity',
+      content: text,
+      sentAt: new Date(),
+      isPrivate: false,
+    });
+    return this.messagesRepo.save(msg);
+  }
 
   async findOrCreate(data: {
     contactId: string;

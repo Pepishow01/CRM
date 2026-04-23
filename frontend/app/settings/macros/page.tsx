@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import api from '../../../lib/api';
+import api from '../../lib/api';
 
 const ACTION_TYPES = [
   { value: 'assign_agent',   label: 'Asignar agente' },

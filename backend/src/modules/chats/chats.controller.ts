@@ -1,17 +1,21 @@
 import {
   Controller, Get, Post, Delete, Param, Patch,
-  Body, UseGuards,
+  Body, UseGuards, Request,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ChatsService } from './chats.service';
+import { ChatGateway } from './chat.gateway';
 
 @ApiTags('Chats')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('chats')
 export class ChatsController {
-  constructor(private chatsService: ChatsService) {}
+  constructor(
+    private chatsService: ChatsService,
+    private chatGateway: ChatGateway,
+  ) {}
 
   @Get()
   findAll() {
@@ -24,14 +28,40 @@ export class ChatsController {
   }
 
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() body: { status?: string; assignedTo?: string | null; teamId?: string | null; priority?: string },
+    @Request() req: any,
   ) {
-    if (body.status !== undefined) return this.chatsService.updateStatus(id, body.status);
-    if (body.assignedTo !== undefined) return this.chatsService.assignTo(id, body.assignedTo);
-    if (body.teamId !== undefined) return this.chatsService.assignTeam(id, body.teamId);
-    if (body.priority !== undefined) return this.chatsService.setPriority(id, body.priority);
+    const actor: string = req.user?.fullName || req.user?.email || 'Agente';
+    const chat = await this.chatsService.findById(id);
+
+    if (body.status !== undefined) {
+      await this.chatsService.updateStatus(id, body.status);
+      const msg = await this.chatsService.createActivity(id, `${actor} cambió el estado a "${body.status}"`);
+      await this.chatGateway.emitNewMessage({ chatId: id, message: msg, contact: chat?.contact, assignedTo: chat?.assignedTo?.id ?? null });
+      return;
+    }
+    if (body.assignedTo !== undefined) {
+      await this.chatsService.assignTo(id, body.assignedTo);
+      const text = body.assignedTo ? `${actor} asignó la conversación` : `${actor} desasignó la conversación`;
+      const msg = await this.chatsService.createActivity(id, text);
+      await this.chatGateway.emitNewMessage({ chatId: id, message: msg, contact: chat?.contact, assignedTo: body.assignedTo ?? null });
+      return;
+    }
+    if (body.teamId !== undefined) {
+      await this.chatsService.assignTeam(id, body.teamId);
+      const text = body.teamId ? `${actor} asignó al equipo` : `${actor} quitó el equipo`;
+      const msg = await this.chatsService.createActivity(id, text);
+      await this.chatGateway.emitNewMessage({ chatId: id, message: msg, contact: chat?.contact, assignedTo: chat?.assignedTo?.id ?? null });
+      return;
+    }
+    if (body.priority !== undefined) {
+      await this.chatsService.setPriority(id, body.priority);
+      const msg = await this.chatsService.createActivity(id, `${actor} cambió la prioridad a "${body.priority}"`);
+      await this.chatGateway.emitNewMessage({ chatId: id, message: msg, contact: chat?.contact, assignedTo: chat?.assignedTo?.id ?? null });
+      return;
+    }
     return this.chatsService.findById(id);
   }
 
