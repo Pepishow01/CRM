@@ -86,6 +86,7 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{ file: File; previewUrl: string | null } | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -161,7 +162,21 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
     } finally { setSending(false); }
   }
 
-  const uploadFile = async (file: File) => {
+  const stageFile = (file: File) => {
+    const isImage = file.type.startsWith('image/');
+    const previewUrl = isImage ? URL.createObjectURL(file) : null;
+    setPendingFile({ file, previewUrl });
+  };
+
+  const cancelPendingFile = () => {
+    if (pendingFile?.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
+    setPendingFile(null);
+  };
+
+  const sendPendingFile = async () => {
+    if (!pendingFile || sending) return;
+    const { file } = pendingFile;
+    cancelPendingFile();
     setSending(true);
     try {
       const formData = new FormData();
@@ -189,19 +204,19 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-    await uploadFile(file);
+    stageFile(file);
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-    await uploadFile(file);
+    stageFile(file);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -353,7 +368,22 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
 
         <div style={{ border: '1px solid #e5e7eb', borderRadius: '16px', padding: '12px', background: isPrivateMode ? '#fffbeb' : '#fff', position: 'relative' }}>
           <CannedResponsePicker trigger={text} onSelect={(content) => setText(content)} />
-          {audioBlob ? (
+          {pendingFile ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', background: '#f3f4f6', borderRadius: '10px' }}>
+              {pendingFile.previewUrl ? (
+                <img src={pendingFile.previewUrl} alt="preview" style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: '48px', height: '48px', background: '#e0e7ff', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
+                  {pendingFile.file.type.startsWith('audio/') ? '🎵' : pendingFile.file.type === 'application/pdf' ? '📄' : '📎'}
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pendingFile.file.name}</div>
+                <div style={{ fontSize: '11px', color: '#6b7280' }}>{(pendingFile.file.size / 1024).toFixed(0)} KB</div>
+              </div>
+              <button onClick={cancelPendingFile} style={{ background: '#fee2e2', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '16px', flexShrink: 0 }}>✕</button>
+            </div>
+          ) : audioBlob ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px' }}>
               <audio src={URL.createObjectURL(audioBlob)} controls style={{ height: '30px' }} />
               <button onClick={() => setAudioBlob(null)} style={{ background: '#fee2e2', border: 'none', borderRadius: '8px', padding: '6px', cursor: 'pointer' }}>🗑️</button>
@@ -384,11 +414,11 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
               <button onClick={() => setShowTemplates(true)} style={toolButtonStyle}>💬</button>
             </div>
             <button
-              onClick={() => handleSend(isPrivateMode)}
-              disabled={(!text.trim() && !audioBlob) || sending}
-              style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: isPrivateMode ? '#f59e0b' : '#3b82f6', color: '#fff', fontWeight: 600, cursor: 'pointer', opacity: (!text.trim() || sending) ? 0.6 : 1 }}
+              onClick={() => pendingFile ? sendPendingFile() : handleSend(isPrivateMode)}
+              disabled={(!text.trim() && !audioBlob && !pendingFile) || sending}
+              style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: isPrivateMode ? '#f59e0b' : '#3b82f6', color: '#fff', fontWeight: 600, cursor: 'pointer', opacity: ((!text.trim() && !pendingFile) || sending) ? 0.6 : 1 }}
             >
-              {isPrivateMode ? 'Guardar nota' : 'Enviar (↩)'}
+              {sending ? 'Enviando...' : pendingFile ? 'Enviar archivo' : isPrivateMode ? 'Guardar nota' : 'Enviar (↩)'}
             </button>
           </div>
         </div>
