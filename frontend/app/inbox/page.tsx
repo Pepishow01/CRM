@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '../lib/api';
 import { connectSocket, disconnectSocket } from '../lib/socket';
@@ -17,7 +17,7 @@ const CHANNEL_ICONS: Record<string, string> = {
   whatsapp: '📱', instagram: '📸', messenger: '💬', email: '📧', widget: '🌐',
 };
 
-export default function InboxPage() {
+function InboxContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
@@ -367,5 +367,13 @@ export default function InboxPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function InboxPage() {
+  return (
+    <Suspense fallback={<div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', color: '#9ca3af' }}>Cargando...</div>}>
+      <InboxContent />
+    </Suspense>
   );
 }
