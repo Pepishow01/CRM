@@ -36,6 +36,10 @@ export class MessagesService {
     return this.messagesRepo.save(message);
   }
 
+  async updateExternalId(messageId: string, externalId: string): Promise<void> {
+    await this.messagesRepo.update(messageId, { externalId });
+  }
+
   async findByExternalId(externalId: string): Promise<Message | null> {
     return this.messagesRepo.findOne({ where: { externalId } });
   }

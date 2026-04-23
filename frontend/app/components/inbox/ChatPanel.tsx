@@ -146,14 +146,17 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
     setSending(true);
     try {
       const r = await api.post(`/chats/${chatId}/messages`, { text: content, isPrivate });
-      // El mensaje llegará por socket, pero lo añadimos localmente para feedback inmediato
       setMessages((prev) => {
-        if (prev.find(m => m.id === r.data.id)) return prev;
+        if (prev.find((m) => m.id === r.data.id)) return prev;
         return [...prev, r.data];
       });
-      // NO reseteamos isPrivateMode a pedido del usuario
-    } catch (err) {
+      if (r.data.whatsappError) {
+        alert(`Mensaje guardado pero no enviado por WhatsApp:\n${r.data.whatsappError}`);
+      }
+    } catch (err: any) {
       setText(content);
+      const msg = err?.response?.data?.message || 'Error al enviar mensaje';
+      alert(msg);
     } finally { setSending(false); }
   }
 

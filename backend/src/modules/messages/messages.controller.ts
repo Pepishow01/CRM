@@ -24,15 +24,20 @@ export class MessagesController {
   ) {}
 
   @Get()
-  findAll(
+  async findAll(
     @Param('chatId') chatId: string,
     @Query('page') page = 1,
     @Query('limit') limit = 1000,
   ) {
-    return this.messagesService.findByChatId(chatId, {
-      page: Number(page),
-      limit: Number(limit),
-    });
+    try {
+      return await this.messagesService.findByChatId(chatId, {
+        page: Number(page) || 1,
+        limit: Number(limit) || 1000,
+      });
+    } catch (err) {
+      this.logger.error(`Error cargando mensajes para chat ${chatId}: ${err?.message}`, err?.stack);
+      throw err;
+    }
   }
 
   @Post()
@@ -40,40 +45,39 @@ export class MessagesController {
     @Param('chatId') chatId: string,
     @Body() body: { text: string; isPrivate?: boolean },
   ) {
-    this.logger.log(`Intentando enviar mensaje a chat ${chatId}. Privado: ${body.isPrivate}. Texto: ${body.text?.substring(0, 20)}...`);
+    this.logger.log(`Enviando mensaje a chat ${chatId}. Privado: ${body.isPrivate}. Texto: ${body.text?.substring(0, 20)}...`);
     const chat = await this.chatsService.findById(chatId);
-    if (!chat) {
-      this.logger.error(`Chat ${chatId} no encontrado`);
-      throw new Error('Chat no encontrado');
-    }
+    if (!chat) throw new Error('Chat no encontrado');
 
-    let externalId: string | undefined;
-
-    // Enviar por WhatsApp si el canal es whatsapp Y NO ES PRIVADO
-    if (!body.isPrivate && chat.channel === 'whatsapp' && chat.contact?.whatsappPhone) {
-      let phone = chat.contact.whatsappPhone.startsWith('+')
-        ? chat.contact.whatsappPhone.slice(1)
-        : chat.contact.whatsappPhone;
-      // Argentina: Meta API no acepta el 9 de móvil (549XXXXXXXXX → 54XXXXXXXXX)
-      if (phone.startsWith('549')) {
-        phone = '54' + phone.slice(3);
-      }
-      externalId = await this.whatsAppSender.sendText(phone, body.text);
-    }
-
-    // Guardar el mensaje en la DB
+    // 1. Guardar el mensaje primero (siempre)
     const message = await this.messagesService.create({
       chatId,
       direction: 'outbound',
       channel: chat.channel,
-      externalId,
       contentType: 'text',
       content: body.text,
       sentAt: new Date(),
       isPrivate: body.isPrivate ?? false,
     });
 
-    // Actualizar preview del chat
+    let whatsappError: string | undefined;
+
+    // 2. Intentar enviar por WhatsApp (solo si aplica)
+    if (!body.isPrivate && chat.channel === 'whatsapp' && chat.contact?.whatsappPhone) {
+      try {
+        let phone = chat.contact.whatsappPhone.startsWith('+')
+          ? chat.contact.whatsappPhone.slice(1)
+          : chat.contact.whatsappPhone;
+        if (phone.startsWith('549')) phone = '54' + phone.slice(3);
+        const externalId = await this.whatsAppSender.sendText(phone, body.text);
+        if (externalId) await this.messagesService.updateExternalId(message.id, externalId);
+      } catch (err) {
+        whatsappError = err?.message ?? 'Error desconocido de WhatsApp';
+        this.logger.warn(`WhatsApp falló para mensaje ${message.id}: ${whatsappError}`);
+      }
+    }
+
+    // 3. Actualizar preview y emitir por socket
     await this.chatsService.updateLastMessage(chatId, {
       preview: body.text.substring(0, 100),
       timestamp: new Date(),
@@ -81,7 +85,6 @@ export class MessagesController {
       direction: 'outbound',
     });
 
-    // Avisar al Frontend para actualizar la barra lateral
     await this.chatGateway.emitNewMessage({
       chatId,
       message,
@@ -89,7 +92,8 @@ export class MessagesController {
       assignedTo: chat.assignedTo?.id ?? null,
     });
 
-    return message;
+    // 4. Siempre devuelve 200 con el mensaje guardado + aviso opcional de error
+    return whatsappError ? { ...message, whatsappError } : message;
   }
 
   @Get('templates')

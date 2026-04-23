@@ -35,7 +35,7 @@ import { MacrosModule } from './modules/macros/macros.module';
         entities: [__dirname + '/modules/**/entities/*.entity{.ts,.js}'],
         autoLoadEntities: true,
         synchronize: true,
-        logging: false,
+        logging: ['error'],
       }),
     }),
     AuthModule,
