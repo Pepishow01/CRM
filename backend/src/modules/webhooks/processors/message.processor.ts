@@ -114,6 +114,7 @@ export class MessageProcessor {
             await this.chatsService.updateLastMessage(chat.id, {
               preview: text.substring(0, 100),
               timestamp: new Date(),
+              direction: 'outbound',
             });
             
             // 6. Avisar al Frontend

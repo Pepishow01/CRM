@@ -1,10 +1,11 @@
 import {
   Entity, PrimaryGeneratedColumn, Column,
   CreateDateColumn, UpdateDateColumn,
-  ManyToOne, OneToMany, JoinColumn,
+  ManyToOne, OneToMany, ManyToMany, JoinTable, JoinColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Contact } from '../../contacts/entities/contact.entity';
+import { Label } from '../../labels/entities/label.entity';
 
 export enum LeadStatus {
   NEW         = 'new',
@@ -18,6 +19,8 @@ export enum ChannelType {
   WHATSAPP  = 'whatsapp',
   INSTAGRAM = 'instagram',
   MESSENGER = 'messenger',
+  EMAIL     = 'email',
+  WIDGET    = 'widget',
 }
 
 @Entity('chats')
@@ -56,6 +59,14 @@ export class Chat {
 
   @Column({ name: 'is_bot_active', default: false })
   isBotActive: boolean;
+
+  @ManyToMany(() => Label, (label) => label.chats, { eager: false, cascade: true })
+  @JoinTable({
+    name: 'chat_labels',
+    joinColumn: { name: 'chat_id' },
+    inverseJoinColumn: { name: 'label_id' },
+  })
+  labels: Label[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

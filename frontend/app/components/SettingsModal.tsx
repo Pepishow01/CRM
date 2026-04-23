@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 
 interface Props {
@@ -8,6 +9,9 @@ interface Props {
 }
 
 export default function SettingsModal({ isOpen, onClose }: Props) {
+  const router = useRouter();
+
+  function goTo(path: string) { onClose(); router.push(path); }
   const [prompts, setPrompts] = useState({
     AI_SUGGEST_REPLIES_PROMPT: '',
     AI_AUTO_REPLY_PROMPT: '',
@@ -70,10 +74,29 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
         width: '90%', maxWidth: '800px', maxHeight: '90vh',
         overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <h2 style={{ margin: 0, fontSize: '20px' }}>Configuración de IA</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 style={{ margin: 0, fontSize: '20px' }}>Ajustes</h2>
           <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: '24px', cursor: 'pointer' }}>&times;</button>
         </div>
+
+        {/* Quick links */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #e5e7eb' }}>
+          {[
+            { label: '🏷️ Etiquetas', path: '/settings/labels' },
+            { label: '⚡ Resp. Rápidas', path: '/settings/canned-responses' },
+            { label: '👥 Equipos', path: '/settings/teams' },
+            { label: '🌐 Widget', path: '/settings/widget' },
+            { label: '👤 Contactos', path: '/contacts' },
+            { label: '📊 Reportes', path: '/reports' },
+          ].map(({ label, path }) => (
+            <button key={path} onClick={() => goTo(path)} style={{
+              padding: '7px 14px', borderRadius: '8px', border: '1px solid #e5e7eb',
+              background: '#f9fafb', cursor: 'pointer', fontSize: '13px',
+            }}>{label}</button>
+          ))}
+        </div>
+
+        <h3 style={{ margin: '0 0 12px', fontSize: '15px', fontWeight: 600 }}>Configuración de IA</h3>
 
         {loading ? (
           <div style={{ padding: '40px', textAlign: 'center' }}>Cargando ajustes...</div>

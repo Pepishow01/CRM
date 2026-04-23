@@ -93,4 +93,10 @@ export class ChatsService {
   async toggleBot(chatId: string, active: boolean): Promise<void> {
     await this.chatsRepo.update(chatId, { isBotActive: active });
   }
+
+  async assignTo(chatId: string, userId: string | null): Promise<void> {
+    await this.chatsRepo.update(chatId, {
+      assignedTo: userId ? ({ id: userId } as any) : null,
+    });
+  }
 }

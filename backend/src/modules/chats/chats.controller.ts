@@ -24,11 +24,13 @@ export class ChatsController {
   }
 
   @Patch(':id')
-  updateStatus(
+  update(
     @Param('id') id: string,
-    @Body() body: { status: string },
+    @Body() body: { status?: string; assignedTo?: string | null },
   ) {
-    return this.chatsService.updateStatus(id, body.status);
+    if (body.status) return this.chatsService.updateStatus(id, body.status);
+    if (body.assignedTo !== undefined) return this.chatsService.assignTo(id, body.assignedTo);
+    return this.chatsService.findById(id);
   }
 
   @Patch(':id/bot')

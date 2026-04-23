@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import { Contact } from './entities/contact.entity';
 import { NormalizedIncomingMessage } from '../webhooks/dto/normalized-message.dto';
 
@@ -51,5 +51,43 @@ export class ContactsService {
     travelData: Record<string, any>,
   ): Promise<void> {
     await this.contactsRepo.update(contactId, { travelData });
+  }
+
+  async findAll(search?: string): Promise<Contact[]> {
+    if (search) {
+      return this.contactsRepo.find({
+        where: [
+          { fullName: ILike(`%${search}%`) },
+          { email: ILike(`%${search}%`) },
+          { phone: ILike(`%${search}%`) },
+          { whatsappPhone: ILike(`%${search}%`) },
+        ],
+        order: { createdAt: 'DESC' },
+        take: 100,
+      });
+    }
+    return this.contactsRepo.find({ order: { createdAt: 'DESC' }, take: 200 });
+  }
+
+  async findById(id: string): Promise<Contact> {
+    const contact = await this.contactsRepo.findOne({ where: { id } });
+    if (!contact) throw new NotFoundException('Contacto no encontrado');
+    return contact;
+  }
+
+  async updateContact(
+    id: string,
+    data: { fullName?: string; email?: string; phone?: string; notesSummary?: string },
+  ): Promise<Contact> {
+    const contact = await this.contactsRepo.findOne({ where: { id } });
+    if (!contact) throw new NotFoundException('Contacto no encontrado');
+    Object.assign(contact, data);
+    return this.contactsRepo.save(contact);
+  }
+
+  async removeContact(id: string): Promise<void> {
+    const contact = await this.contactsRepo.findOne({ where: { id } });
+    if (!contact) throw new NotFoundException('Contacto no encontrado');
+    await this.contactsRepo.remove(contact);
   }
 }

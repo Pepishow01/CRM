@@ -5,6 +5,9 @@ import api from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import AiPanel from './AiPanel';
 import TemplatesModal from './TemplatesModal';
+import LabelPicker from './LabelPicker';
+import LabelBadge from './LabelBadge';
+import CannedResponsePicker from './CannedResponsePicker';
 
 // Importación dinámica para evitar errores de SSR con el selector de emojis
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
@@ -62,7 +65,13 @@ function MediaMessage({ msg }: { msg: Message }) {
   return <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>;
 }
 
-export default function ChatPanel({ chatId, onClose }: { chatId: string; onClose: () => void }) {
+interface ChatPanelProps {
+  chatId: string;
+  onClose: () => void;
+  onLabelsChange?: (chatId: string, labels: any[]) => void;
+}
+
+export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanelProps) {
   const [chat, setChat] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
@@ -70,6 +79,7 @@ export default function ChatPanel({ chatId, onClose }: { chatId: string; onClose
   const [isPrivateMode, setIsPrivateMode] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [chatLabels, setChatLabels] = useState<any[]>([]);
   
   // Audio State
   const [isRecording, setIsRecording] = useState(false);
@@ -106,11 +116,17 @@ export default function ChatPanel({ chatId, onClose }: { chatId: string; onClose
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); 
   }, [messages]);
 
-  async function loadChat() { 
+  async function loadChat() {
     try {
-      const r = await api.get(`/chats/${chatId}`); 
-      setChat(r.data); 
+      const r = await api.get(`/chats/${chatId}`);
+      setChat(r.data);
+      api.get(`/labels/chat/${chatId}`).then((lr) => setChatLabels(lr.data)).catch(() => {});
     } catch (err) { console.error(err); }
+  }
+
+  function handleLabelsChange(newLabels: any[]) {
+    setChatLabels(newLabels);
+    onLabelsChange?.(chatId, newLabels);
   }
   
   async function loadMessages() { 
@@ -213,15 +229,28 @@ export default function ChatPanel({ chatId, onClose }: { chatId: string; onClose
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
       {/* HEADER */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #e5e7eb', background: '#fff', flexShrink: 0 }}>
-        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#dcfce7', color: '#166534', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 600 }}>
-          {chat?.contact?.fullName?.[0]?.toUpperCase() || '?'}
+      <div style={{ borderBottom: '1px solid #e5e7eb', background: '#fff', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px' }}>
+          <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#dcfce7', color: '#166534', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 600 }}>
+            {chat?.contact?.fullName?.[0]?.toUpperCase() || '?'}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 500, fontSize: '15px' }}>{chat?.contact?.fullName || 'Chat'}</div>
+            <div style={{ fontSize: '11px', color: '#6b7280' }}>
+              {chat?.channel} · {chat?.status}
+              {chat?.assignedTo && ` · ${chat.assignedTo.fullName}`}
+            </div>
+          </div>
+          <LabelPicker chatId={chatId} currentLabels={chatLabels} onChanged={handleLabelsChange} />
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}>&times;</button>
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 500, fontSize: '15px' }}>{chat?.contact?.fullName || 'Chat'}</div>
-          <div style={{ fontSize: '12px', color: '#6b7280' }}>{chat?.status}</div>
-        </div>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}>&times;</button>
+        {chatLabels.length > 0 && (
+          <div style={{ padding: '0 16px 8px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {chatLabels.map((l) => (
+              <LabelBadge key={l.id} label={l} onRemove={() => handleLabelsChange(chatLabels.filter((x) => x.id !== l.id))} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* MESSAGES */}
@@ -259,7 +288,8 @@ export default function ChatPanel({ chatId, onClose }: { chatId: string; onClose
           <button onClick={() => setIsPrivateMode(true)} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', background: isPrivateMode ? '#fef9c3' : 'transparent', fontWeight: isPrivateMode ? 600 : 400, cursor: 'pointer', color: isPrivateMode ? '#854d0e' : '#6b7280' }}>Nota privada</button>
         </div>
 
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: '16px', padding: '12px', background: isPrivateMode ? '#fffbeb' : '#fff' }}>
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: '16px', padding: '12px', background: isPrivateMode ? '#fffbeb' : '#fff', position: 'relative' }}>
+          <CannedResponsePicker trigger={text} onSelect={(content) => setText(content)} />
           {audioBlob ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px' }}>
               <audio src={URL.createObjectURL(audioBlob)} controls style={{ height: '30px' }} />

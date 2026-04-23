@@ -11,6 +11,14 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { AiModule } from './modules/ai/ai.module';
 import { HealthModule } from './modules/health/health.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { LabelsModule } from './modules/labels/labels.module';
+import { CannedResponsesModule } from './modules/canned-responses/canned-responses.module';
+import { TeamsModule } from './modules/teams/teams.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { EmailModule } from './modules/email/email.module';
+import { WidgetModule } from './modules/widget/widget.module';
+import { CustomAttributesModule } from './modules/custom-attributes/custom-attributes.module';
+import { SearchModule } from './modules/search/search.module';
 
 @Module({
   imports: [
@@ -38,6 +46,14 @@ import { SettingsModule } from './modules/settings/settings.module';
     AiModule,
     HealthModule,
     SettingsModule,
+    LabelsModule,
+    CannedResponsesModule,
+    TeamsModule,
+    ReportsModule,
+    EmailModule,
+    WidgetModule,
+    CustomAttributesModule,
+    SearchModule,
   ],
 })
 export class AppModule {}
