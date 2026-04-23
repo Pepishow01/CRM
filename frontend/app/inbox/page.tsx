@@ -6,6 +6,7 @@ import { connectSocket, disconnectSocket } from '../lib/socket';
 import ChatPanel from '../components/inbox/ChatPanel';
 import SettingsModal from '../components/SettingsModal';
 import LabelBadge from '../components/inbox/LabelBadge';
+import { useNotifications } from '../lib/useNotifications';
 
 const STATUS_LABELS: Record<string, string> = {
   new: 'Nuevo', in_progress: 'En progreso', waiting: 'Esperando', sold: 'Vendido', lost: 'Perdido',
@@ -26,6 +27,8 @@ function InboxContent() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [labels, setLabels] = useState<any[]>([]);
+
+  useNotifications(activeChatId);
 
   // Filters
   const [filterStatus, setFilterStatus] = useState('');

@@ -110,6 +110,31 @@ export class ChatsService {
     await this.chatsRepo.update(chatId, { priority: priority as any });
   }
 
+  async getParticipants(chatId: string): Promise<any[]> {
+    const chat = await this.chatsRepo
+      .createQueryBuilder('chat')
+      .leftJoinAndSelect('chat.participants', 'participants')
+      .where('chat.id = :chatId', { chatId })
+      .getOne();
+    return chat?.participants || [];
+  }
+
+  async addParticipant(chatId: string, userId: string): Promise<void> {
+    await this.chatsRepo
+      .createQueryBuilder()
+      .relation(Chat, 'participants')
+      .of(chatId)
+      .add(userId);
+  }
+
+  async removeParticipant(chatId: string, userId: string): Promise<void> {
+    await this.chatsRepo
+      .createQueryBuilder()
+      .relation(Chat, 'participants')
+      .of(chatId)
+      .remove(userId);
+  }
+
   async findByContact(contactId: string): Promise<Chat[]> {
     return this.chatsRepo
       .createQueryBuilder('chat')

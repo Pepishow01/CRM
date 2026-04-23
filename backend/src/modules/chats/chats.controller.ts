@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Param, Patch,
+  Controller, Get, Post, Delete, Param, Patch,
   Body, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
@@ -40,6 +40,21 @@ export class ChatsController {
     return this.chatsService.findById(id).then((chat) =>
       chat?.contact?.id ? this.chatsService.findByContact(chat.contact.id) : [],
     );
+  }
+
+  @Get(':id/participants')
+  getParticipants(@Param('id') id: string) {
+    return this.chatsService.getParticipants(id);
+  }
+
+  @Post(':id/participants/:userId')
+  addParticipant(@Param('id') id: string, @Param('userId') userId: string) {
+    return this.chatsService.addParticipant(id, userId);
+  }
+
+  @Delete(':id/participants/:userId')
+  removeParticipant(@Param('id') id: string, @Param('userId') userId: string) {
+    return this.chatsService.removeParticipant(id, userId);
   }
 
   @Patch(':id/bot')

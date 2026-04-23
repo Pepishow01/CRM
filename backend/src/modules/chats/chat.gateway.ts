@@ -8,9 +8,12 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../users/entities/user.entity';
 
 @WebSocketGateway({
   cors: {
@@ -27,6 +30,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private jwtService: JwtService,
     private config: ConfigService,
+    @InjectRepository(User)
+    private usersRepo: Repository<User>,
   ) {}
 
   async handleConnection(client: Socket): Promise<void> {
@@ -52,13 +57,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.join('admins');
       }
 
+      await this.usersRepo.update(payload.sub, { isOnline: true, lastSeenAt: new Date() });
+      this.server.emit('agent:status', { userId: payload.sub, isOnline: true });
       this.logger.log(`Usuario ${payload.sub} conectado`);
     } catch {
       client.disconnect();
     }
   }
 
-  handleDisconnect(client: Socket): void {
+  async handleDisconnect(client: Socket): Promise<void> {
+    const userId = client.data?.userId;
+    if (userId) {
+      // Only mark offline if no other sockets from same user remain
+      const rooms = this.server.sockets.adapter.rooms.get(`user:${userId}`);
+      if (!rooms || rooms.size === 0) {
+        await this.usersRepo.update(userId, { isOnline: false, lastSeenAt: new Date() });
+        this.server.emit('agent:status', { userId, isOnline: false });
+      }
+    }
     this.logger.log(`Socket ${client.id} desconectado`);
   }
 

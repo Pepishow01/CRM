@@ -30,6 +30,12 @@ export class User {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
+  @Column({ name: 'is_online', default: false })
+  isOnline: boolean;
+
+  @Column({ name: 'last_seen_at', nullable: true })
+  lastSeenAt: Date;
+
   @Column({ name: 'avatar_url', nullable: true })
   avatarUrl: string;
 

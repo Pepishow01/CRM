@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import api from '../../lib/api';
 import LabelPicker from './LabelPicker';
 import LabelBadge from './LabelBadge';
+import MacrosPanel from './MacrosPanel';
 
 interface ContactInfoPanelProps {
   chatId: string;
@@ -38,6 +39,7 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
 
 export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsChange, onChatUpdate }: ContactInfoPanelProps) {
   const [agents, setAgents] = useState<any[]>([]);
+  const [agentStatus, setAgentStatus] = useState<Record<string, boolean>>({});
   const [teams, setTeams] = useState<any[]>([]);
   const [previousChats, setPreviousChats] = useState<any[]>([]);
   const [note, setNote] = useState('');
@@ -45,13 +47,32 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
   const [updatingAgent, setUpdatingAgent] = useState(false);
   const [updatingTeam, setUpdatingTeam] = useState(false);
   const [updatingPriority, setUpdatingPriority] = useState(false);
+  const [attrDefs, setAttrDefs] = useState<any[]>([]);
+  const [attrValues, setAttrValues] = useState<any[]>([]);
+  const [participants, setParticipants] = useState<any[]>([]);
 
   const contact = chat?.contact;
   const initials = contact?.fullName?.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
 
   useEffect(() => {
-    api.get('/users').then((r) => setAgents(r.data)).catch(() => {});
+    api.get('/users').then((r) => {
+      setAgents(r.data);
+      const statusMap: Record<string, boolean> = {};
+      r.data.forEach((a: any) => { statusMap[a.id] = a.isOnline || false; });
+      setAgentStatus(statusMap);
+    }).catch(() => {});
+
+    // Listen for real-time agent status updates
+    import('../../lib/socket').then(({ getSocket }) => {
+      const socket = getSocket();
+      const handler = (data: any) => {
+        setAgentStatus((prev) => ({ ...prev, [data.userId]: data.isOnline }));
+      };
+      socket.on('agent:status', handler);
+      return () => { socket.off('agent:status', handler); };
+    });
     api.get('/teams').then((r) => setTeams(r.data)).catch(() => {});
+    api.get('/custom-attributes/definitions?entityType=contact').then((r) => setAttrDefs(r.data)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -60,7 +81,11 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
         .then((r) => setPreviousChats(r.data.filter((c: any) => c.id !== chatId)))
         .catch(() => {});
     }
-  }, [chatId]);
+    if (chat?.contact?.id) {
+      api.get(`/custom-attributes/values/${chat.contact.id}`).then((r) => setAttrValues(r.data)).catch(() => {});
+    }
+    api.get(`/chats/${chatId}/participants`).then((r) => setParticipants(r.data)).catch(() => {});
+  }, [chatId, chat?.contact?.id]);
 
   async function updateAgent(userId: string) {
     setUpdatingAgent(true);
@@ -162,7 +187,7 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
             >
               <option value="none">Sin asignar</option>
               {agents.map((a: any) => (
-                <option key={a.id} value={a.id}>{a.fullName || a.email}</option>
+                <option key={a.id} value={a.id}>{agentStatus[a.id] ? '🟢 ' : '⚪ '}{a.fullName || a.email}</option>
               ))}
             </select>
           </div>
@@ -207,6 +232,9 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
           </div>
         </div>
       </Section>
+
+      {/* Macros */}
+      <MacrosPanel chatId={chatId} onExecuted={onChatUpdate} />
 
       {/* Contact Notes */}
       <Section title="Notas de contacto" defaultOpen={false}>
@@ -278,11 +306,60 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
         </div>
       </Section>
 
+      {/* Participants */}
+      <Section title="Participantes de la conversación" defaultOpen={false}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {participants.map((p: any) => (
+            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#e0e7ff', color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>
+                  {p.fullName?.[0]?.toUpperCase() || '?'}
+                </div>
+                <span style={{ fontSize: '12px', color: '#374151' }}>{p.fullName || p.email}</span>
+              </div>
+              <button
+                onClick={() => api.delete(`/chats/${chatId}/participants/${p.id}`).then(() => setParticipants((prev) => prev.filter((x) => x.id !== p.id)))}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '14px' }}
+              >✕</button>
+            </div>
+          ))}
+          <select
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const userId = e.target.value;
+              api.post(`/chats/${chatId}/participants/${userId}`).then(() => {
+                const agent = agents.find((a) => a.id === userId);
+                if (agent) setParticipants((prev) => [...prev, agent]);
+              });
+              e.target.value = '';
+            }}
+            style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px dashed #d1d5db', background: '#f9fafb', fontSize: '12px', color: '#6b7280', cursor: 'pointer', marginTop: '4px' }}
+          >
+            <option value="">+ Agregar participante</option>
+            {agents.filter((a) => !participants.find((p) => p.id === a.id)).map((a) => (
+              <option key={a.id} value={a.id}>{a.fullName || a.email}</option>
+            ))}
+          </select>
+        </div>
+      </Section>
+
       {/* Contact Attributes */}
       <Section title="Atributos de contacto" defaultOpen={false}>
-        <p style={{ color: '#9ca3af', fontSize: '12px', textAlign: 'center', margin: '4px 0' }}>
-          No se encontraron atributos
-        </p>
+        {attrDefs.length === 0 ? (
+          <p style={{ color: '#9ca3af', fontSize: '12px', textAlign: 'center', margin: '4px 0' }}>No se encontraron atributos</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {attrDefs.map((def) => {
+              const val = attrValues.find((v: any) => v.definition?.id === def.id);
+              return (
+                <div key={def.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#6b7280', fontSize: '12px' }}>{def.displayName}</span>
+                  <span style={{ fontWeight: 500, fontSize: '12px' }}>{val?.value || '—'}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Section>
     </div>
   );

@@ -5,10 +5,11 @@ import { ChatsService } from './chats.service';
 import { ChatsController } from './chats.controller';
 import { ChatGateway } from './chat.gateway';
 import { Chat } from './entities/chat.entity';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Chat]),
+    TypeOrmModule.forFeature([Chat, User]),
     JwtModule.register({}),
   ],
   controllers: [ChatsController],

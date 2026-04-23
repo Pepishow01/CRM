@@ -76,6 +76,14 @@ export class Chat {
   @Column({ name: 'is_bot_active', default: false })
   isBotActive: boolean;
 
+  @ManyToMany(() => User, { eager: false })
+  @JoinTable({
+    name: 'chat_participants',
+    joinColumn: { name: 'chat_id' },
+    inverseJoinColumn: { name: 'user_id' },
+  })
+  participants: User[];
+
   @ManyToMany(() => Label, (label) => label.chats, { eager: false, cascade: true })
   @JoinTable({
     name: 'chat_labels',

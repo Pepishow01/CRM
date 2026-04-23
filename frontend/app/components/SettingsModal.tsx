@@ -85,6 +85,8 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
             { label: '🏷️ Etiquetas', path: '/settings/labels' },
             { label: '⚡ Resp. Rápidas', path: '/settings/canned-responses' },
             { label: '👥 Equipos', path: '/settings/teams' },
+            { label: '⚡ Macros', path: '/settings/macros' },
+            { label: '📋 Atributos', path: '/settings/custom-attributes' },
             { label: '🌐 Widget', path: '/settings/widget' },
             { label: '👤 Contactos', path: '/contacts' },
             { label: '📊 Reportes', path: '/reports' },

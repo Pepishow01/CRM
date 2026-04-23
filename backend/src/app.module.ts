@@ -19,6 +19,7 @@ import { EmailModule } from './modules/email/email.module';
 import { WidgetModule } from './modules/widget/widget.module';
 import { CustomAttributesModule } from './modules/custom-attributes/custom-attributes.module';
 import { SearchModule } from './modules/search/search.module';
+import { MacrosModule } from './modules/macros/macros.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { SearchModule } from './modules/search/search.module';
     WidgetModule,
     CustomAttributesModule,
     SearchModule,
+    MacrosModule,
   ],
 })
 export class AppModule {}
