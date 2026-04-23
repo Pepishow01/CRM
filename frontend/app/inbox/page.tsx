@@ -25,10 +25,12 @@ function InboxContent() {
   const [chats, setChats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const activeChatIdRef = useRef<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [labels, setLabels] = useState<any[]>([]);
 
   useNotifications(activeChatId);
+  useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
 
   // Filters
   const [filterStatus, setFilterStatus] = useState('');
@@ -60,12 +62,16 @@ function InboxContent() {
         setChats((prev) => {
           const exists = prev.find((c) => c.id === chatId);
           if (exists) {
+            const isActive = chatId === activeChatIdRef.current;
+            if (isActive && message.direction === 'inbound') {
+              api.post(`/chats/${chatId}/read`).catch(() => {});
+            }
             const updated = {
               ...exists,
               lastMessagePreview: message.content ?? '[Media]',
               lastMessageAt: message.sentAt,
               isLastMessagePrivate: message.isPrivate ?? false,
-              unreadCount: message.direction === 'inbound' ? (exists.unreadCount || 0) + 1 : 0,
+              unreadCount: (message.direction === 'inbound' && !isActive) ? (exists.unreadCount || 0) + 1 : 0,
             };
             return [updated, ...prev.filter((c) => c.id !== chatId)];
           } else { loadChats(); return prev; }
@@ -282,7 +288,11 @@ function InboxContent() {
 
             {displayChats.map((chat: any) => (
               <div key={chat.id}
-                onClick={() => setActiveChatId(chat.id)}
+                onClick={() => {
+                  setActiveChatId(chat.id);
+                  setChats((prev) => prev.map((c) => c.id === chat.id ? { ...c, unreadCount: 0 } : c));
+                  api.post(`/chats/${chat.id}/read`).catch(() => {});
+                }}
                 style={{
                   padding: '10px 12px', borderBottom: '1px solid #eee',
                   background: activeChatId === chat.id ? '#ede9fe' : '#fff',

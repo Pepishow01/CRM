@@ -150,6 +150,10 @@ export class ChatsService {
       .remove(userId);
   }
 
+  async markAsRead(chatId: string): Promise<void> {
+    await this.chatsRepo.update(chatId, { unreadCount: 0 });
+  }
+
   async findByContact(contactId: string): Promise<Chat[]> {
     return this.chatsRepo
       .createQueryBuilder('chat')

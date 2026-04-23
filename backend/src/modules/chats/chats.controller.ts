@@ -65,6 +65,11 @@ export class ChatsController {
     return this.chatsService.findById(id);
   }
 
+  @Post(':id/read')
+  markAsRead(@Param('id') id: string) {
+    return this.chatsService.markAsRead(id);
+  }
+
   @Get(':id/contact-chats')
   findByContact(@Param('id') id: string) {
     return this.chatsService.findById(id).then((chat) =>
