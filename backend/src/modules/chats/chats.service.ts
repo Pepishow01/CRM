@@ -99,4 +99,24 @@ export class ChatsService {
       assignedTo: userId ? ({ id: userId } as any) : null,
     });
   }
+
+  async assignTeam(chatId: string, teamId: string | null): Promise<void> {
+    await this.chatsRepo.update(chatId, {
+      team: teamId ? ({ id: teamId } as any) : null,
+    });
+  }
+
+  async setPriority(chatId: string, priority: string): Promise<void> {
+    await this.chatsRepo.update(chatId, { priority: priority as any });
+  }
+
+  async findByContact(contactId: string): Promise<Chat[]> {
+    return this.chatsRepo
+      .createQueryBuilder('chat')
+      .leftJoinAndSelect('chat.contact', 'contact')
+      .leftJoinAndSelect('chat.assignedTo', 'assignedTo')
+      .where('contact.id = :contactId', { contactId })
+      .orderBy('chat.lastMessageAt', 'DESC')
+      .getMany();
+  }
 }

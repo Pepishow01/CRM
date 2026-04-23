@@ -8,6 +8,7 @@ import TemplatesModal from './TemplatesModal';
 import LabelPicker from './LabelPicker';
 import LabelBadge from './LabelBadge';
 import CannedResponsePicker from './CannedResponsePicker';
+import ContactInfoPanel from './ContactInfoPanel';
 
 // Importación dinámica para evitar errores de SSR con el selector de emojis
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
@@ -227,7 +228,9 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+    {/* LEFT: messages column */}
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, position: 'relative' }}>
       {/* HEADER */}
       <div style={{ borderBottom: '1px solid #e5e7eb', background: '#fff', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px' }}>
@@ -241,16 +244,8 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
               {chat?.assignedTo && ` · ${chat.assignedTo.fullName}`}
             </div>
           </div>
-          <LabelPicker chatId={chatId} currentLabels={chatLabels} onChanged={handleLabelsChange} />
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}>&times;</button>
         </div>
-        {chatLabels.length > 0 && (
-          <div style={{ padding: '0 16px 8px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-            {chatLabels.map((l) => (
-              <LabelBadge key={l.id} label={l} onRemove={() => handleLabelsChange(chatLabels.filter((x) => x.id !== l.id))} />
-            ))}
-          </div>
-        )}
       </div>
 
       {/* MESSAGES */}
@@ -333,6 +328,18 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
 
       <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
       {showTemplates && <TemplatesModal chatId={chatId} onClose={() => setShowTemplates(false)} onSend={loadMessages} />}
+    </div>{/* end left column */}
+
+    {/* RIGHT: contact info panel */}
+    {chat && (
+      <ContactInfoPanel
+        chatId={chatId}
+        chat={chat}
+        chatLabels={chatLabels}
+        onLabelsChange={handleLabelsChange}
+        onChatUpdate={loadChat}
+      />
+    )}
     </div>
   );
 }

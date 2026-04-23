@@ -6,6 +6,7 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { Contact } from '../../contacts/entities/contact.entity';
 import { Label } from '../../labels/entities/label.entity';
+import { Team } from '../../teams/entities/team.entity';
 
 export enum LeadStatus {
   NEW         = 'new',
@@ -13,6 +14,14 @@ export enum LeadStatus {
   WAITING     = 'waiting',
   SOLD        = 'sold',
   LOST        = 'lost',
+}
+
+export enum ChatPriority {
+  NONE   = 'none',
+  LOW    = 'low',
+  MEDIUM = 'medium',
+  HIGH   = 'high',
+  URGENT = 'urgent',
 }
 
 export enum ChannelType {
@@ -35,6 +44,13 @@ export class Chat {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'assigned_to' })
   assignedTo: User;
+
+  @ManyToOne(() => Team, { nullable: true, eager: true })
+  @JoinColumn({ name: 'team_id' })
+  team: Team;
+
+  @Column({ type: 'enum', enum: ChatPriority, default: ChatPriority.NONE })
+  priority: ChatPriority;
 
   @Column({ type: 'enum', enum: ChannelType })
   channel: ChannelType;
