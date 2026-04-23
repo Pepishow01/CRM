@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
-import * as FormData from 'form-data';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const FormData = require('form-data');
 
 @Injectable()
 export class WhatsAppMediaService {

@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { MessagesService } from './messages.service';
 import { ChatsService } from '../chats/chats.service';
 import { WhatsAppSenderService } from './whatsapp-sender.service';
+import { ChatGateway } from '../chats/chat.gateway';
 
 @ApiTags('Messages')
 @ApiBearerAuth()
