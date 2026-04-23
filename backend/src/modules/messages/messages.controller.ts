@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { MessagesService } from './messages.service';
 import { ChatsService } from '../chats/chats.service';
 import { WhatsAppSenderService } from './whatsapp-sender.service';
+import { WhatsAppMediaService } from './whatsapp-media.service';
 import { ChatGateway } from '../chats/chat.gateway';
 
 @ApiTags('Messages')
@@ -20,6 +21,7 @@ export class MessagesController {
     private messagesService: MessagesService,
     private chatsService: ChatsService,
     private whatsAppSender: WhatsAppSenderService,
+    private whatsAppMedia: WhatsAppMediaService,
     private chatGateway: ChatGateway,
   ) {}
 
@@ -132,28 +134,70 @@ export class MessagesController {
     @Body() body: { mediaId: string; contentType: string; filename?: string },
   ) {
     const chat = await this.chatsService.findById(chatId);
-    if (!chat || !chat.contact?.whatsappPhone) throw new Error('Chat o teléfono no encontrado');
+    if (!chat) throw new Error('Chat no encontrado');
 
     let type: 'image' | 'audio' | 'document' | 'video' = 'document';
     if (body.contentType.startsWith('image/')) type = 'image';
     else if (body.contentType.startsWith('audio/')) type = 'audio';
     else if (body.contentType.startsWith('video/')) type = 'video';
 
-    const externalId = await this.whatsAppSender.sendMediaById(
-      chat.contact.whatsappPhone,
-      body.mediaId,
-      type,
-    );
-
-    return this.messagesService.create({
+    // 1. Guardar el mensaje primero (siempre)
+    const message = await this.messagesService.create({
       chatId,
       direction: 'outbound',
-      channel: 'whatsapp',
-      externalId,
+      channel: chat.channel,
       contentType: type,
       content: body.filename || `Archivo ${type}`,
       mediaUrl: `/api/v1/media/${body.mediaId}`,
       sentAt: new Date(),
     });
+
+    let whatsappError: string | undefined;
+
+    // 2. Intentar enviar por WhatsApp (solo si aplica)
+    if (chat.channel === 'whatsapp' && chat.contact?.whatsappPhone) {
+      try {
+        let phone = chat.contact.whatsappPhone.startsWith('+')
+          ? chat.contact.whatsappPhone.slice(1)
+          : chat.contact.whatsappPhone;
+        if (phone.startsWith('549')) phone = '54' + phone.slice(3);
+
+        // Subir el archivo local a Meta API para obtener un Media ID válido
+        const localFile = await this.whatsAppMedia.getLocalFile(body.mediaId);
+        let metaMediaId: string;
+        if (localFile) {
+          metaMediaId = await this.whatsAppMedia.uploadToMeta({
+            buffer: localFile.buffer,
+            originalname: body.filename || `file.${type}`,
+            mimetype: body.contentType,
+          });
+        } else {
+          metaMediaId = body.mediaId;
+        }
+
+        const externalId = await this.whatsAppSender.sendMediaById(phone, metaMediaId, type);
+        if (externalId) await this.messagesService.updateExternalId(message.id, externalId);
+      } catch (err) {
+        whatsappError = err?.message ?? 'Error desconocido de WhatsApp';
+        this.logger.warn(`WhatsApp media falló para mensaje ${message.id}: ${whatsappError}`);
+      }
+    }
+
+    // 3. Actualizar preview y emitir por socket
+    await this.chatsService.updateLastMessage(chatId, {
+      preview: body.filename || `Archivo ${type}`,
+      timestamp: new Date(),
+      isPrivate: false,
+      direction: 'outbound',
+    });
+
+    await this.chatGateway.emitNewMessage({
+      chatId,
+      message,
+      contact: chat.contact,
+      assignedTo: chat.assignedTo?.id ?? null,
+    });
+
+    return whatsappError ? { ...message, whatsappError } : message;
   }
 }

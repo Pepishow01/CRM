@@ -85,6 +85,7 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
   // Audio State
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -160,23 +161,55 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
     } finally { setSending(false); }
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadFile = async (file: File) => {
     setSending(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const uploadRes = await api.post('/media/upload', formData);
+      const uploadRes = await api.post('/media/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       const r = await api.post(`/chats/${chatId}/messages/media`, {
         mediaId: uploadRes.data.mediaId,
-        contentType: file.type,
-        filename: file.name
+        contentType: file.type || 'application/octet-stream',
+        filename: file.name,
       });
-      setMessages(prev => [...prev, r.data]);
-    } catch (err) { alert('Error subiendo archivo'); }
-    finally { setSending(false); }
+      setMessages(prev => {
+        if (prev.find((m) => m.id === r.data.id)) return prev;
+        return [...prev, r.data];
+      });
+      if (r.data.whatsappError) {
+        alert(`Archivo guardado pero no enviado por WhatsApp:\n${r.data.whatsappError}`);
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Error subiendo archivo';
+      alert(msg);
+    } finally {
+      setSending(false);
+    }
   };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    await uploadFile(file);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => setIsDragging(false);
 
   const startRecording = async () => {
     try {
@@ -254,7 +287,25 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
       </div>
 
       {/* MESSAGES */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', background: '#f9fafb', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        style={{
+          flex: 1, overflowY: 'auto', padding: '16px', background: isDragging ? '#eff6ff' : '#f9fafb',
+          display: 'flex', flexDirection: 'column', gap: '8px',
+          border: isDragging ? '2px dashed #3b82f6' : '2px dashed transparent',
+          transition: 'background 0.15s, border-color 0.15s', boxSizing: 'border-box',
+        }}
+      >
+        {isDragging && (
+          <div style={{
+            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(239,246,255,0.85)', zIndex: 10, fontSize: '16px', color: '#2563eb', fontWeight: 600, pointerEvents: 'none',
+          }}>
+            Soltá el archivo aquí para enviarlo
+          </div>
+        )}
         {messages.map((msg) => {
           // Activity messages: centered gray pill
           if (msg.contentType === 'activity') {

@@ -1,8 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as crypto from 'crypto';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const FormData = require('form-data');
+
+const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
 @Injectable()
 export class WhatsAppMediaService {
@@ -17,6 +22,56 @@ export class WhatsAppMediaService {
         Authorization: `Bearer ${this.config.get('WHATSAPP_API_TOKEN')}`,
       },
     });
+    if (!fs.existsSync(UPLOADS_DIR)) {
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    }
+  }
+
+  async saveLocally(file: { buffer: Buffer; originalname: string; mimetype: string }): Promise<string> {
+    const ext = path.extname(file.originalname) || '';
+    const uuid = crypto.randomUUID();
+    const filename = `${uuid}${ext}`;
+    const filepath = path.join(UPLOADS_DIR, filename);
+    await fs.promises.writeFile(filepath, file.buffer);
+    return `local_${uuid}${ext}`;
+  }
+
+  async getLocalFile(mediaId: string): Promise<{ buffer: Buffer; contentType: string; filename: string } | null> {
+    if (!mediaId.startsWith('local_')) return null;
+    const filename = mediaId.slice(6);
+    const filepath = path.join(UPLOADS_DIR, filename);
+    try {
+      const buffer = await fs.promises.readFile(filepath);
+      const ext = path.extname(filename).toLowerCase();
+      const mimeMap: Record<string, string> = {
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+        '.gif': 'image/gif', '.webp': 'image/webp', '.mp4': 'video/mp4',
+        '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.pdf': 'application/pdf',
+        '.doc': 'application/msword',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.xls': 'application/vnd.ms-excel',
+      };
+      const contentType = mimeMap[ext] || 'application/octet-stream';
+      return { buffer, contentType, filename };
+    } catch {
+      return null;
+    }
+  }
+
+  async uploadToMeta(file: { buffer: Buffer; originalname: string; mimetype: string }): Promise<string> {
+    const phoneNumberId = this.config.get('WHATSAPP_PHONE_NUMBER_ID');
+    const form = new FormData();
+    form.append('file', file.buffer, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+    form.append('messaging_product', 'whatsapp');
+
+    const response = await this.client.post(`/${phoneNumberId}/media`, form, {
+      headers: form.getHeaders(),
+    });
+    return response.data.id;
   }
 
   async getMediaUrl(mediaId: string): Promise<string | null> {
