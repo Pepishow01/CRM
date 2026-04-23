@@ -48,7 +48,7 @@ export class WhatsAppMediaService {
     }
   }
 
-  async uploadMedia(file: Express.Multer.File): Promise<string> {
+  async uploadMedia(file: any): Promise<string> {
     try {
       const phoneNumberId = this.config.get('WHATSAPP_PHONE_NUMBER_ID');
       const form = new FormData();

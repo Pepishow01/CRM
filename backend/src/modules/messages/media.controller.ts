@@ -24,7 +24,7 @@ export class MediaController {
   @Post('upload')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file'))
-  async uploadMedia(@UploadedFile() file: Express.Multer.File) {
+  async uploadMedia(@UploadedFile() file: any) {
     if (!file) throw new Error('No se recibió ningún archivo');
     const mediaId = await this.mediaService.uploadMedia(file);
     return { mediaId, originalName: file.originalname, mimetype: file.mimetype };
