@@ -117,14 +117,6 @@ Generá 3 sugerencias de respuesta para el último mensaje del cliente.
       const customPrompt = await this.settingsService.get('AI_AUTO_REPLY_PROMPT');
       const basePrompt = customPrompt || AUTO_REPLY_PROMPT;
 
-      const systemPrompt = `${basePrompt}
-
----INSTRUCCIONES DE SISTEMA (PRIORIDAD MÁXIMA)---
-FORMATO DE RESPUESTA: Si necesitás enviar varios mensajes por separado, separá cada uno con "---" en una línea sola. El sistema los enviará como mensajes individuales de WhatsApp. NUNCA uses "Mensaje 1:", "Mensaje 2:". Escribí solo el texto.
-EMOJIS: Varialos siempre. NUNCA uses el mismo emoji dos veces seguidas. Muchas respuestas no necesitan emoji.
-CONOCIMIENTO: Podés responder cualquier pregunta usando tu conocimiento propio (destinos, excursiones, clima, cultura, gastronomía, vida cotidiana, etc.). Solo derivá al asesor para precios o disponibilidad en tiempo real.
-RESPONDE ÚNICAMENTE con el texto a enviar. Sin explicaciones ni JSON.`;
-
       // Filter messages (exclude private notes and empty)
       const filtered = rawMessages.filter(m => !m.isPrivate && m.content?.trim());
       if (filtered.length === 0) return null;
@@ -133,18 +125,36 @@ RESPONDE ÚNICAMENTE con el texto a enviar. Sin explicaciones ni JSON.`;
       const lastMsg = filtered[filtered.length - 1];
       if (lastMsg.direction !== 'inbound') return null;
 
-      // Build a labeled transcript so Claude clearly sees who said what
-      const transcript = filtered
-        .map(m => `${m.direction === 'inbound' ? 'Cliente' : 'Manu'}: ${m.content}`)
-        .join('\n');
+      // Build labeled transcript of everything EXCEPT the last client message
+      const history = filtered.slice(0, -1);
+      const transcript = history.length > 0
+        ? history.map(m => `${m.direction === 'inbound' ? 'Cliente' : 'Manu'}: ${m.content}`).join('\n')
+        : '(inicio de la conversación)';
 
-      const userContent = `Historial de la conversación:\n${transcript}\n\nRespondé al último mensaje del cliente: "${lastMsg.content}"`;
+      // Conversation history goes IN THE SYSTEM PROMPT so it has max weight over the base rules
+      const systemPrompt = `${basePrompt}
+
+=== HISTORIAL REAL DE ESTA CONVERSACIÓN (leelo con atención) ===
+${transcript}
+=== FIN DEL HISTORIAL ===
+
+REGLAS DE CONTINUACIÓN (PRIORIDAD MÁXIMA — anulan cualquier regla del prompt de arriba):
+- Ya sabés exactamente qué pasó en la conversación. Continuá desde donde quedó.
+- Si el historial muestra que ya saludaste, NO vuelvas a saludar.
+- Si el historial muestra que ya preguntaste el nombre y el cliente lo respondió, usá ese nombre. NO vuelvas a pedirlo.
+- Si el historial muestra que ya pediste algún dato y el cliente lo dio, NO lo vuelvas a pedir.
+- NUNCA repitas una pregunta que el cliente ya respondió.
+- Podés responder cualquier pregunta con tu conocimiento propio (destinos, excursiones, clima, sargazo, cultura, gastronomía, etc.).
+- FORMATO: Si enviás varios mensajes, separá cada uno con "---" en una línea sola. Sin "Mensaje 1:". Solo el texto.
+- EMOJIS: Variados y moderados. Nunca el mismo dos veces seguidas.
+- RESPONDE ÚNICAMENTE con el texto del mensaje. Sin JSON ni explicaciones.`;
 
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: 1500,
         system: systemPrompt,
-        messages: [{ role: 'user', content: userContent }],
+        // Last client message is the only user turn — clean, no ambiguity
+        messages: [{ role: 'user', content: lastMsg.content }],
       });
 
       return (response.content?.[0] as any)?.text ?? null;
