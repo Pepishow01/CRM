@@ -107,30 +107,41 @@ Generá 3 sugerencias de respuesta para el último mensaje del cliente.
     }
   }
 
-  async generateAutoReply(conversation: string, contactName?: string): Promise<string | null> {
+  async generateAutoReply(
+    rawMessages: Array<{ direction: string; content: string; isPrivate?: boolean }>,
+    contactName?: string,
+  ): Promise<string | null> {
     if (!this.enabled) return null;
 
     try {
       const customPrompt = await this.settingsService.get('AI_AUTO_REPLY_PROMPT');
-      const systemPrompt = customPrompt || AUTO_REPLY_PROMPT;
+      const basePrompt = customPrompt || AUTO_REPLY_PROMPT;
+      // Tell Claude how to split multi-message replies
+      const systemPrompt = `${basePrompt}\n\nSi necesitás enviar varios mensajes separados, separá cada uno con "---" en una línea sola. RESPONDE ÚNICAMENTE con el texto de los mensajes. Sin JSON ni explicaciones.`;
+
+      // Build proper multi-turn Claude conversation (alternating user/assistant)
+      const claudeMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+      for (const msg of rawMessages) {
+        if (msg.isPrivate || !msg.content?.trim()) continue;
+        const role: 'user' | 'assistant' = msg.direction === 'inbound' ? 'user' : 'assistant';
+        // Collapse consecutive same-role messages (Claude requires strict alternation)
+        if (claudeMessages.length > 0 && claudeMessages[claudeMessages.length - 1].role === role) {
+          claudeMessages[claudeMessages.length - 1].content += '\n' + msg.content;
+        } else {
+          claudeMessages.push({ role, content: msg.content });
+        }
+      }
+
+      // Must end with a user message
+      if (claudeMessages.length === 0 || claudeMessages[claudeMessages.length - 1].role !== 'user') {
+        return null;
+      }
 
       const response = await this.client.messages.create({
         model: this.model,
-        max_tokens: 400,
+        max_tokens: 1500,
         system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: `
-Nombre del cliente: ${contactName ?? 'desconocido'}
-
-Conversación:
-${conversation}
-
-Generá la respuesta automática para el último mensaje del cliente.
-            `.trim(),
-          },
-        ],
+        messages: claudeMessages,
       });
 
       return (response.content?.[0] as any)?.text ?? null;

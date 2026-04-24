@@ -131,8 +131,7 @@ export class MessageProcessor {
       try {
         this.logger.log(`Bot activo para chat ${chat.id}. Generando respuesta...`);
         const historyData = await this.messagesService.findByChatId(chat.id, { page: 1, limit: 100 });
-        const conversation = this.aiService.formatConversation(historyData);
-        const fullReply = await this.aiService.generateAutoReply(conversation, contact.fullName);
+        const fullReply = await this.aiService.generateAutoReply(historyData, contact.fullName);
 
         if (fullReply) {
           const messagesToSend = fullReply.split(/\n\n|---/).map(m => m.trim()).filter(m => m.length > 0);
