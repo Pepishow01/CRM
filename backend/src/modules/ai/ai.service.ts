@@ -116,8 +116,17 @@ Generá 3 sugerencias de respuesta para el último mensaje del cliente.
     try {
       const customPrompt = await this.settingsService.get('AI_AUTO_REPLY_PROMPT');
       const basePrompt = customPrompt || AUTO_REPLY_PROMPT;
-      // Tell Claude how to split multi-message replies
-      const systemPrompt = `${basePrompt}\n\nSi necesitás enviar varios mensajes separados, separá cada uno con "---" en una línea sola. RESPONDE ÚNICAMENTE con el texto de los mensajes. Sin JSON ni explicaciones.`;
+      // Append runtime instructions that override the fallback behavior
+      const systemPrompt = `${basePrompt}
+
+---INSTRUCCIONES DE SISTEMA (PRIORIDAD MÁXIMA)---
+FORMATO: Si necesitás enviar varios mensajes separados, separá cada uno con "---" en una línea sola.
+
+CONOCIMIENTO GENERAL DE VIAJES: Podés y DEBÉS responder preguntas generales sobre destinos con tu propio conocimiento (clima, sargazo, temporadas, qué hacer, playas, requisitos de entrada, moneda, tips, etc.). NO uses la frase "Buena pregunta..." para preguntas de destino que podés responder vos. Solo derivá al asesor humano cuando la pregunta requiera disponibilidad o precio real en tiempo real.
+
+CONTINUIDAD DE CONVERSACIÓN: Aunque ya hayas confirmado que vas a cotizar, seguí teniendo un ida y vuelta natural con el cliente. Si pregunta algo más, respondé. No des la conversación por terminada.
+
+RESPONDE ÚNICAMENTE con el texto de los mensajes. Sin JSON, sin "Mensaje 1:", sin explicaciones adicionales.`;
 
       // Build proper multi-turn Claude conversation (alternating user/assistant)
       const claudeMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
