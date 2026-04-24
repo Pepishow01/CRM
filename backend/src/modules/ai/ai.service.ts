@@ -140,6 +140,26 @@ Generá la respuesta automática para el último mensaje del cliente.
     }
   }
 
+  async translateMessage(content: string, targetLang = 'es'): Promise<string | null> {
+    if (!this.enabled) return null;
+    try {
+      const langNames: Record<string, string> = {
+        es: 'Spanish', en: 'English', pt: 'Portuguese', fr: 'French', de: 'German', it: 'Italian',
+      };
+      const targetName = langNames[targetLang] ?? targetLang;
+      const response = await this.client.messages.create({
+        model: this.model,
+        max_tokens: 400,
+        system: `You are a translator. Translate the user's message to ${targetName}. Reply with ONLY the translated text, no explanations.`,
+        messages: [{ role: 'user', content }],
+      });
+      return (response.content?.[0] as any)?.text?.trim() ?? null;
+    } catch (err) {
+      this.logger.error(`Error traduciendo: ${err.message}`);
+      return null;
+    }
+  }
+
   formatConversation(messages: Array<{ direction: string; content: string }>): string {
     return messages
       .filter((m) => m.content && m.content.trim().length > 0)

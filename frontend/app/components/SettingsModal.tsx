@@ -94,6 +94,8 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
             { label: '🔄 Auto-asignación', path: '/settings/auto-assign' },
             { label: '🤖 Automatizaciones', path: '/settings/automations' },
             { label: '🏢 Empresas', path: '/companies' },
+            { label: '📚 Base de conocimiento', path: '/settings/knowledge-base' },
+            { label: '⏱️ SLA', path: '/settings/sla' },
           ].map(({ label, path }) => (
             <button key={path} onClick={() => goTo(path)} style={{
               padding: '7px 14px', borderRadius: '8px', border: '1px solid #e5e7eb',

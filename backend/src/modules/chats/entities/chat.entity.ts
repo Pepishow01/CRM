@@ -71,6 +71,9 @@ export class Chat {
   @Column({ name: 'snoozed_until', nullable: true, type: 'timestamp' })
   snoozedUntil: Date;
 
+  @Column({ name: 'last_inbound_at', nullable: true, type: 'timestamp' })
+  lastInboundAt: Date;
+
   @Column({ name: 'ai_classification', nullable: true })
   aiClassification: string;
 

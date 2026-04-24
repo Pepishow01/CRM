@@ -103,6 +103,9 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange, onConvStatu
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [translating, setTranslating] = useState<Record<string, boolean>>({});
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -165,6 +168,19 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange, onConvStatu
       const r = await api.get(`/chats/${chatId}/messages`); 
       setMessages(r.data); 
     } catch (err) { console.error(err); }
+  }
+
+  async function handleTranslate(msgId: string, content: string) {
+    if (translations[msgId]) {
+      setTranslations((prev) => { const n = { ...prev }; delete n[msgId]; return n; });
+      return;
+    }
+    setTranslating((prev) => ({ ...prev, [msgId]: true }));
+    try {
+      const r = await api.post(`/chats/${chatId}/ai/translate`, { content, targetLang: 'es' });
+      setTranslations((prev) => ({ ...prev, [msgId]: r.data.translated }));
+    } catch { /* ignore */ }
+    finally { setTranslating((prev) => { const n = { ...prev }; delete n[msgId]; return n; }); }
   }
 
   async function setConvStatus(status: string) {
@@ -448,7 +464,7 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange, onConvStatu
             );
           }
           return (
-            <div key={msg.id} style={{ display: 'flex', justifyContent: msg.direction === 'outbound' ? 'flex-end' : 'flex-start' }}>
+            <div key={msg.id} style={{ display: 'flex', justifyContent: msg.direction === 'outbound' ? 'flex-end' : 'flex-start', flexDirection: 'column', alignItems: msg.direction === 'outbound' ? 'flex-end' : 'flex-start' }}>
               <div style={{
                 maxWidth: '75%', padding: '10px 14px', borderRadius: '12px',
                 background: msg.isPrivate ? '#fef9c3' : (msg.direction === 'outbound' ? '#4f46e5' : '#fff'),
@@ -457,7 +473,23 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange, onConvStatu
               }}>
                 {msg.isPrivate && <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#a16207' }}>📌 NOTA PRIVADA</div>}
                 <MediaMessage msg={msg} />
-                <div style={{ fontSize: '10px', marginTop: '4px', textAlign: 'right', opacity: 0.6 }}>{new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                {translations[msg.id] && (
+                  <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: `1px solid ${msg.direction === 'outbound' ? 'rgba(255,255,255,0.3)' : '#e5e7eb'}`, fontSize: '13px', fontStyle: 'italic', opacity: 0.85 }}>
+                    🌐 {translations[msg.id]}
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                  {msg.content && msg.contentType === 'text' ? (
+                    <button
+                      onClick={() => handleTranslate(msg.id, msg.content)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', opacity: 0.5, padding: '0 2px', color: 'inherit' }}
+                      title={translations[msg.id] ? 'Ocultar traducción' : 'Traducir'}
+                    >
+                      {translating[msg.id] ? '...' : translations[msg.id] ? '🌐✕' : '🌐'}
+                    </button>
+                  ) : <span />}
+                  <div style={{ fontSize: '10px', opacity: 0.6 }}>{new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
               </div>
             </div>
           );

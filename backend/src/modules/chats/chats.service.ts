@@ -177,6 +177,14 @@ export class ChatsService {
     await this.chatsRepo.update(chatId, { unreadCount: 0 });
   }
 
+  async setLastInboundAt(chatId: string, timestamp: Date): Promise<void> {
+    await this.chatsRepo.update(chatId, { lastInboundAt: timestamp });
+  }
+
+  async clearLastInboundAt(chatId: string): Promise<void> {
+    await this.chatsRepo.update(chatId, { lastInboundAt: null as any });
+  }
+
   async findByContact(contactId: string): Promise<Chat[]> {
     return this.chatsRepo
       .createQueryBuilder('chat')

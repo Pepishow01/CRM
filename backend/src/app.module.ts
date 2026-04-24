@@ -22,6 +22,7 @@ import { SearchModule } from './modules/search/search.module';
 import { MacrosModule } from './modules/macros/macros.module';
 import { CompaniesModule } from './modules/companies/companies.module';
 import { AutomationsModule } from './modules/automations/automations.module';
+import { ArticlesModule } from './modules/articles/articles.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { AutomationsModule } from './modules/automations/automations.module';
     MacrosModule,
     CompaniesModule,
     AutomationsModule,
+    ArticlesModule,
   ],
 })
 export class AppModule {}

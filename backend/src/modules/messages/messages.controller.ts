@@ -79,13 +79,14 @@ export class MessagesController {
       }
     }
 
-    // 3. Actualizar preview y emitir por socket
+    // 3. Actualizar preview y emitir por socket; clear SLA waiting timer
     await this.chatsService.updateLastMessage(chatId, {
       preview: body.text.substring(0, 100),
       timestamp: new Date(),
       isPrivate: body.isPrivate ?? false,
       direction: 'outbound',
     });
+    if (!body.isPrivate) await this.chatsService.clearLastInboundAt(chatId);
 
     await this.chatGateway.emitNewMessage({
       chatId,

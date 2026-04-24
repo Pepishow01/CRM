@@ -1,4 +1,4 @@
-import { Controller, Post, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AiService } from './ai.service';
@@ -45,5 +45,14 @@ export class AiController {
     });
     const conversation = this.aiService.formatConversation(messages);
     return this.aiService.extractTravelData(conversation);
+  }
+
+  @Post('translate')
+  async translate(
+    @Param('chatId') _chatId: string,
+    @Body() body: { content: string; targetLang?: string },
+  ) {
+    const translated = await this.aiService.translateMessage(body.content, body.targetLang);
+    return { translated };
   }
 }

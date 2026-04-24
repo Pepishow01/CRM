@@ -35,6 +35,7 @@ function InboxContent() {
   const activeChatIdRef = useRef<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [labels, setLabels] = useState<any[]>([]);
+  const [slaMinutes, setSlaMinutes] = useState<number | null>(null);
 
   useNotifications(activeChatId);
   useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
@@ -60,6 +61,13 @@ function InboxContent() {
     setUser(JSON.parse(stored));
     loadChats();
     api.get('/labels').then((r) => setLabels(r.data)).catch(() => {});
+    api.get('/settings').then((r) => {
+      const raw = r.data.sla;
+      if (raw) {
+        const cfg = JSON.parse(raw);
+        if (cfg.enabled) setSlaMinutes(cfg.minutes ?? 240);
+      }
+    }).catch(() => {});
 
     const chatParam = searchParams.get('chat');
     if (chatParam) setActiveChatId(chatParam);
@@ -346,6 +354,10 @@ function InboxContent() {
                       {chat.lastMessagePreview ?? 'Sin mensajes'}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                      {slaMinutes && chat.lastInboundAt && chat.convStatus === 'open' &&
+                        (Date.now() - new Date(chat.lastInboundAt).getTime()) > slaMinutes * 60000 && (
+                        <span title="SLA vencido — esperando respuesta" style={{ fontSize: '10px', background: '#fee2e2', color: '#dc2626', padding: '1px 4px', borderRadius: '4px', fontWeight: 700 }}>SLA</span>
+                      )}
                       <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: STATUS_COLORS[chat.status] ?? '#9ca3af', flexShrink: 0 }} title={STATUS_LABELS[chat.status]} />
                       {chat.unreadCount > 0 && (
                         <span style={{ background: '#16a34a', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 700 }}>

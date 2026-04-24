@@ -83,6 +83,9 @@ export class MessageProcessor {
       direction: 'inbound',
     });
 
+    // Track SLA: when inbound arrives, mark waiting time start
+    await this.chatsService.setLastInboundAt(chat.id, msg.timestamp);
+
     await this.chatGateway.emitNewMessage({
       chatId: chat.id,
       message,
