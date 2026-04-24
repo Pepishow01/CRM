@@ -74,10 +74,11 @@ interface ChatPanelProps {
 }
 
 const SNOOZE_OPTIONS = [
-  { label: '1 hora',     minutes: 60 },
-  { label: '4 horas',    minutes: 240 },
-  { label: 'Mañana',     minutes: 24 * 60 },
-  { label: 'Próxima semana', minutes: 7 * 24 * 60 },
+  { label: 'Hasta una hora a partir de ahora', minutes: 60 },
+  { label: 'Hasta mañana',                     minutes: 24 * 60 },
+  { label: 'Hasta la próxima semana',          minutes: 7 * 24 * 60 },
+  { label: 'Hasta el mes próximo',             minutes: 30 * 24 * 60 },
+  { label: 'Personalizar...', minutes: -1 },
 ];
 
 export default function ChatPanel({ chatId, onClose, onLabelsChange, onConvStatusChange }: ChatPanelProps) {
@@ -96,6 +97,8 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange, onConvStatu
   const [isDragging, setIsDragging] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ file: File; previewUrl: string | null } | null>(null);
   const [showSnooze, setShowSnooze] = useState(false);
+  const [showCustomSnooze, setShowCustomSnooze] = useState(false);
+  const [customSnoozeDate, setCustomSnoozeDate] = useState('');
   const [updatingConvStatus, setUpdatingConvStatus] = useState(false);
   const [typingLabel, setTypingLabel] = useState('');
   const typingTimerRef = useRef<any>(null);
@@ -193,8 +196,27 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange, onConvStatu
   }
 
   async function handleSnooze(minutes: number) {
+    if (minutes === -1) {
+      // Personalizar: mostrar el date picker inline
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + 60);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      setCustomSnoozeDate(`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`);
+      setShowCustomSnooze(true);
+      return;
+    }
     setShowSnooze(false);
     const until = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+    await api.post(`/chats/${chatId}/snooze`, { until });
+    setChat((prev: any) => prev ? { ...prev, convStatus: 'snoozed', snoozedUntil: until } : prev);
+    onConvStatusChange?.();
+  }
+
+  async function handleCustomSnooze() {
+    if (!customSnoozeDate) return;
+    const until = new Date(customSnoozeDate).toISOString();
+    setShowSnooze(false);
+    setShowCustomSnooze(false);
     await api.post(`/chats/${chatId}/snooze`, { until });
     setChat((prev: any) => prev ? { ...prev, convStatus: 'snoozed', snoozedUntil: until } : prev);
     onConvStatusChange?.();
@@ -413,23 +435,45 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange, onConvStatu
               </button>
             )}
             <button
-              onClick={() => setShowSnooze(!showSnooze)}
+              onClick={() => { setShowSnooze(!showSnooze); setShowCustomSnooze(false); }}
               title="Posponer conversación"
               style={{ padding: '5px 8px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#f9fafb', color: '#6b7280', fontSize: '13px', cursor: 'pointer' }}
             >
               ⏰
             </button>
             {showSnooze && (
-              <div style={{ position: 'absolute', top: '110%', right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '160px', overflow: 'hidden' }}>
-                <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 600, color: '#6b7280', borderBottom: '1px solid #f3f4f6' }}>Posponer hasta...</div>
+              <div style={{ position: 'absolute', top: '110%', right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '220px', overflow: 'hidden' }}>
+                <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 600, color: '#6b7280', borderBottom: '1px solid #f3f4f6' }}>Posponer conversación</div>
                 {SNOOZE_OPTIONS.map((opt) => (
-                  <button key={opt.label} onClick={() => handleSnooze(opt.minutes)} style={{ display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#374151' }}
+                  <button key={opt.label} onClick={() => handleSnooze(opt.minutes)}
+                    style={{ display: 'block', width: '100%', padding: '9px 12px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: opt.minutes === -1 ? '#4f46e5' : '#374151' }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = '#f9fafb')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
                   >
-                    {opt.label}
+                    ⏱ {opt.label}
                   </button>
                 ))}
+                {showCustomSnooze && (
+                  <div style={{ padding: '10px 12px', borderTop: '1px solid #f3f4f6' }}>
+                    <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>Seleccioná fecha y hora:</div>
+                    <input
+                      type="datetime-local"
+                      value={customSnoozeDate}
+                      onChange={(e) => setCustomSnoozeDate(e.target.value)}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                    />
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                      <button onClick={() => setShowCustomSnooze(false)}
+                        style={{ flex: 1, padding: '6px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: '12px' }}>
+                        Cancelar
+                      </button>
+                      <button onClick={handleCustomSnooze}
+                        style={{ flex: 1, padding: '6px', borderRadius: '6px', border: 'none', background: '#4f46e5', color: '#fff', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                        Confirmar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
