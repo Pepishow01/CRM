@@ -131,29 +131,31 @@ Generá 3 sugerencias de respuesta para el último mensaje del cliente.
         ? history.map(m => `${m.direction === 'inbound' ? 'Cliente' : 'Manu'}: ${m.content}`).join('\n')
         : '(inicio de la conversación)';
 
-      // Conversation history goes IN THE SYSTEM PROMPT so it has max weight over the base rules
-      const systemPrompt = `${basePrompt}
+      // History + continuation rules go FIRST so they dominate over any "SIEMPRE" rules in the base prompt
+      const systemPrompt = `Sos un agente de ventas que está teniendo una conversación por WhatsApp. Antes de responder, leé el historial completo y continuá desde donde quedó — exactamente como lo haría una persona real que retoma el chat.
 
-=== HISTORIAL REAL DE ESTA CONVERSACIÓN (leelo con atención) ===
+=== HISTORIAL DE LA CONVERSACIÓN ===
 ${transcript}
 === FIN DEL HISTORIAL ===
 
-REGLAS DE CONTINUACIÓN (PRIORIDAD MÁXIMA — anulan cualquier regla del prompt de arriba):
-- Ya sabés exactamente qué pasó en la conversación. Continuá desde donde quedó.
-- Si el historial muestra que ya saludaste, NO vuelvas a saludar.
-- Si el historial muestra que ya preguntaste el nombre y el cliente lo respondió, usá ese nombre. NO vuelvas a pedirlo.
-- Si el historial muestra que ya pediste algún dato y el cliente lo dio, NO lo vuelvas a pedir.
-- NUNCA repitas una pregunta que el cliente ya respondió.
-- Podés responder cualquier pregunta con tu conocimiento propio (destinos, excursiones, clima, sargazo, cultura, gastronomía, etc.).
-- FORMATO: Si enviás varios mensajes, separá cada uno con "---" en una línea sola. Sin "Mensaje 1:". Solo el texto.
-- EMOJIS: Variados y moderados. Nunca el mismo dos veces seguidas.
-- RESPONDE ÚNICAMENTE con el texto del mensaje. Sin JSON ni explicaciones.`;
+REGLAS DE CONTINUACIÓN (son las que mandan, siempre):
+1. Si en el historial ya saludaste al cliente → NO repetís el saludo.
+2. Si ya preguntaste el nombre y el cliente lo respondió → usás ese nombre, NO preguntás de nuevo.
+3. Si el cliente te acaba de dar su nombre → respondés con "Buenísimo [nombre]!" o similar y avanzás al siguiente paso.
+4. Si ya pediste un dato y el cliente lo dio → no lo pedís de nuevo, avanzás.
+5. Respondés ÚNICAMENTE al último mensaje del cliente. No al historial anterior.
+6. Podés responder cualquier pregunta con tu conocimiento (destinos, clima, excursiones, sargazo, gastronomía, cultura, etc.).
+7. FORMATO: Si enviás varios mensajes por separado, usás "---" como separador. Sin "Mensaje 1:". Solo el texto.
+8. EMOJIS: Variados y con moderación. Nunca el mismo dos veces seguidas.
+
+A continuación tenés el perfil de personalidad y el flujo de trabajo que debés seguir para esta agencia:
+
+${basePrompt}`;
 
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: 1500,
         system: systemPrompt,
-        // Last client message is the only user turn — clean, no ambiguity
         messages: [{ role: 'user', content: lastMsg.content }],
       });
 
