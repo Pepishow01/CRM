@@ -392,6 +392,16 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange, onConvStatu
                 ↩ Reabrir
               </button>
             )}
+            {chat?.convStatus === 'pending' && (
+              <button
+                onClick={() => setConvStatus('open')}
+                disabled={updatingConvStatus}
+                title="Mover a Abiertas"
+                style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid #3b82f6', background: '#eff6ff', color: '#2563eb', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                ▶ Abrir
+              </button>
+            )}
             {chat?.convStatus !== 'pending' && chat?.convStatus !== 'resolved' && (
               <button
                 onClick={() => setConvStatus('pending')}
