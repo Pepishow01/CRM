@@ -116,45 +116,35 @@ Generá 3 sugerencias de respuesta para el último mensaje del cliente.
     try {
       const customPrompt = await this.settingsService.get('AI_AUTO_REPLY_PROMPT');
       const basePrompt = customPrompt || AUTO_REPLY_PROMPT;
-      // Append runtime instructions that override the fallback behavior
+
       const systemPrompt = `${basePrompt}
 
 ---INSTRUCCIONES DE SISTEMA (PRIORIDAD MÁXIMA)---
-FORMATO: Si necesitás enviar varios mensajes separados, separá cada uno con "---" en una línea sola.
+FORMATO DE RESPUESTA: Si necesitás enviar varios mensajes por separado, separá cada uno con "---" en una línea sola. El sistema los enviará como mensajes individuales de WhatsApp. NUNCA uses "Mensaje 1:", "Mensaje 2:". Escribí solo el texto.
+EMOJIS: Varialos siempre. NUNCA uses el mismo emoji dos veces seguidas. Muchas respuestas no necesitan emoji.
+CONOCIMIENTO: Podés responder cualquier pregunta usando tu conocimiento propio (destinos, excursiones, clima, cultura, gastronomía, vida cotidiana, etc.). Solo derivá al asesor para precios o disponibilidad en tiempo real.
+RESPONDE ÚNICAMENTE con el texto a enviar. Sin explicaciones ni JSON.`;
 
-FOCO EN EL ÚLTIMO MENSAJE: Tu respuesta debe ser EXCLUSIVAMENTE sobre lo que el cliente dijo en su ÚLTIMO mensaje. Si el cliente cambia de tema o dice algo nuevo, seguile la corriente. No respondas sobre temas de mensajes anteriores si el cliente ya pasó a otra cosa.
+      // Filter messages (exclude private notes and empty)
+      const filtered = rawMessages.filter(m => !m.isPrivate && m.content?.trim());
+      if (filtered.length === 0) return null;
 
-CONOCIMIENTO GENERAL AMPLIO: Podés y DEBÉS responder cualquier pregunta que el cliente haga usando tu conocimiento propio, sin importar el tema: destinos turísticos, excursiones, clima, sargazo, cultura, gastronomía, tips, geografía, preguntas de la vida cotidiana, curiosidades, etc. Nunca uses "Buena pregunta! Cuando te arme la cotización te respondo eso también" para preguntas que podés responder vos. Esa frase SOLO sirve para cuando realmente necesitás datos en tiempo real (disponibilidad, precios de vuelos, reservas). Para todo lo demás: respondé de forma breve, útil y natural. Máximo 2-3 oraciones, nada de respuestas largas.
+      // Last message must be from the client
+      const lastMsg = filtered[filtered.length - 1];
+      if (lastMsg.direction !== 'inbound') return null;
 
-EMOJIS: Usá emojis con moderación y variados (🙂 🙌 ✨ 😊). NUNCA repitas el mismo emoji en mensajes consecutivos. Muchas respuestas no necesitan emoji.
+      // Build a labeled transcript so Claude clearly sees who said what
+      const transcript = filtered
+        .map(m => `${m.direction === 'inbound' ? 'Cliente' : 'Manu'}: ${m.content}`)
+        .join('\n');
 
-CONTINUIDAD: Seguí teniendo conversación con el cliente aunque ya hayas confirmado la cotización. La charla no termina hasta que el cliente deje de hablar.
-
-RESPONDE ÚNICAMENTE con el texto de los mensajes. Sin JSON, sin "Mensaje 1:", sin explicaciones adicionales.`;
-
-      // Build proper multi-turn Claude conversation (alternating user/assistant)
-      const claudeMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-      for (const msg of rawMessages) {
-        if (msg.isPrivate || !msg.content?.trim()) continue;
-        const role: 'user' | 'assistant' = msg.direction === 'inbound' ? 'user' : 'assistant';
-        // Collapse consecutive same-role messages (Claude requires strict alternation)
-        if (claudeMessages.length > 0 && claudeMessages[claudeMessages.length - 1].role === role) {
-          claudeMessages[claudeMessages.length - 1].content += '\n' + msg.content;
-        } else {
-          claudeMessages.push({ role, content: msg.content });
-        }
-      }
-
-      // Must end with a user message
-      if (claudeMessages.length === 0 || claudeMessages[claudeMessages.length - 1].role !== 'user') {
-        return null;
-      }
+      const userContent = `Historial de la conversación:\n${transcript}\n\nRespondé al último mensaje del cliente: "${lastMsg.content}"`;
 
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: 1500,
         system: systemPrompt,
-        messages: claudeMessages,
+        messages: [{ role: 'user', content: userContent }],
       });
 
       return (response.content?.[0] as any)?.text ?? null;
