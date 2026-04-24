@@ -414,7 +414,7 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange, onConvStatu
                 ↩ Reabrir
               </button>
             )}
-            {chat?.convStatus === 'pending' && (
+            {(chat?.convStatus === 'pending' || chat?.convStatus === 'snoozed') && (
               <button
                 onClick={() => setConvStatus('open')}
                 disabled={updatingConvStatus}
