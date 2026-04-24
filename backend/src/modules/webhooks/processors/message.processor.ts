@@ -130,7 +130,7 @@ export class MessageProcessor {
     if ((chat.isBotActive || chat.convStatus === ConvStatus.PENDING) && msg.contentType === 'text') {
       try {
         this.logger.log(`Bot activo para chat ${chat.id}. Generando respuesta...`);
-        const historyData = await this.messagesService.findByChatId(chat.id, { page: 1, limit: 100 });
+        const historyData = await this.messagesService.findByChatId(chat.id, { page: 1, limit: 30 });
         const fullReply = await this.aiService.generateAutoReply(historyData, contact.fullName);
 
         if (fullReply) {
