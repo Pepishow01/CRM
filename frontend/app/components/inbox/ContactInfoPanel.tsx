@@ -41,6 +41,8 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
   const [agents, setAgents] = useState<any[]>([]);
   const [agentStatus, setAgentStatus] = useState<Record<string, boolean>>({});
   const [teams, setTeams] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [sendingTranscript, setSendingTranscript] = useState(false);
   const [previousChats, setPreviousChats] = useState<any[]>([]);
   const [note, setNote] = useState('');
   const [contactNotes, setContactNotes] = useState<any[]>([]);
@@ -73,6 +75,7 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
       return () => { socket.off('agent:status', handler); };
     });
     api.get('/teams').then((r) => setTeams(r.data)).catch(() => {});
+    api.get('/companies').then((r) => setCompanies(r.data)).catch(() => {});
     api.get('/custom-attributes/definitions?entityType=contact').then((r) => setAttrDefs(r.data)).catch(() => {});
   }, []);
 
@@ -103,6 +106,21 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
       await api.patch(`/chats/${chatId}`, { teamId: teamId === 'none' ? null : teamId });
       onChatUpdate();
     } finally { setUpdatingTeam(false); }
+  }
+
+  async function updateCompany(companyId: string) {
+    await api.patch(`/contacts/${contact?.id}`, { companyId: companyId === 'none' ? null : companyId });
+    onChatUpdate();
+  }
+
+  async function sendTranscript() {
+    setSendingTranscript(true);
+    try {
+      await api.post(`/email/transcript/${chatId}`, { email: contact?.email });
+      alert('Transcripción enviada al email del contacto');
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Error enviando transcripción');
+    } finally { setSendingTranscript(false); }
   }
 
   async function updatePriority(priority: string) {
@@ -233,6 +251,20 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
           </div>
 
           <div>
+            <span style={labelStyle}>Empresa</span>
+            <select
+              value={contact?.company?.id || 'none'}
+              onChange={(e) => updateCompany(e.target.value)}
+              style={dropdownStyle}
+            >
+              <option value="none">Sin empresa</option>
+              {companies.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <span style={labelStyle}>Etiquetas de conversación</span>
             <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
               <LabelPicker chatId={chatId} currentLabels={chatLabels} onChanged={onLabelsChange} />
@@ -311,6 +343,19 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
           </div>
         )}
       </Section>
+
+      {/* Transcript */}
+      {contact?.email && (
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6' }}>
+          <button
+            onClick={sendTranscript}
+            disabled={sendingTranscript}
+            style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', fontSize: '12px', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+          >
+            📧 {sendingTranscript ? 'Enviando...' : 'Enviar transcripción por email'}
+          </button>
+        </div>
+      )}
 
       {/* Conversation Info */}
       <Section title="Información de la conversación" defaultOpen={false}>

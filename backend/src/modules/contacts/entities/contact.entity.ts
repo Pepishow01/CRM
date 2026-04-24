@@ -1,7 +1,8 @@
 import {
   Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn, OneToMany,
+  CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn,
 } from 'typeorm';
+import { Company } from '../../companies/entities/company.entity';
 
 @Entity('contacts')
 export class Contact {
@@ -34,6 +35,10 @@ export class Contact {
 
   @Column({ name: 'notes_summary', nullable: true })
   notesSummary: string;
+
+  @ManyToOne(() => Company, { nullable: true, eager: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

@@ -85,6 +85,46 @@ export class EmailService {
     return this.messagesRepo.save(msg);
   }
 
+  async sendTranscript(chatId: string, toEmail?: string): Promise<void> {
+    const chat = await this.chatsRepo.findOne({ where: { id: chatId }, relations: ['contact'] });
+    if (!chat) throw new Error('Chat no encontrado');
+
+    const inbox = await this.inboxRepo.findOne({ where: { isActive: true } });
+    if (!inbox) throw new Error('No hay bandeja de email configurada');
+
+    const messages = await this.messagesRepo.find({
+      where: { chatId },
+      order: { sentAt: 'ASC' },
+    });
+
+    const recipient = toEmail || chat.contact?.email;
+    if (!recipient) throw new Error('El contacto no tiene email');
+
+    const rows = messages
+      .filter(m => m.contentType !== 'activity')
+      .map(m => {
+        const align = m.direction === 'outbound' ? 'right' : 'left';
+        const bg = m.direction === 'outbound' ? '#4f46e5' : '#f3f4f6';
+        const color = m.direction === 'outbound' ? '#ffffff' : '#111827';
+        const time = new Date(m.sentAt).toLocaleString('es-AR');
+        return `<div style="margin:8px 0;text-align:${align}"><div style="display:inline-block;background:${bg};color:${color};padding:10px 14px;border-radius:12px;max-width:70%;font-size:14px">${m.content || '[Media]'}</div><div style="font-size:11px;color:#9ca3af;margin-top:2px">${time}</div></div>`;
+      }).join('');
+
+    const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto"><h2 style="color:#4f46e5">Transcripción de conversación</h2><p style="color:#6b7280">Contacto: <strong>${chat.contact?.fullName || 'Sin nombre'}</strong></p><hr/>${rows}</div>`;
+
+    const transporter = nodemailer.createTransport({
+      host: inbox.smtpHost, port: inbox.smtpPort, secure: inbox.smtpSsl,
+      auth: { user: inbox.smtpUser, pass: inbox.smtpPassword },
+    });
+
+    await transporter.sendMail({
+      from: `"${inbox.name}" <${inbox.email}>`,
+      to: recipient,
+      subject: `Transcripción de conversación con ${chat.contact?.fullName || 'Contacto'}`,
+      html,
+    });
+  }
+
   async receiveEmail(data: {
     from: string;
     fromName?: string;

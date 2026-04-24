@@ -90,6 +90,10 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
             { label: '🌐 Widget', path: '/settings/widget' },
             { label: '👤 Contactos', path: '/contacts' },
             { label: '📊 Reportes', path: '/reports' },
+            { label: '⏰ Horario de atención', path: '/settings/business-hours' },
+            { label: '🔄 Auto-asignación', path: '/settings/auto-assign' },
+            { label: '🤖 Automatizaciones', path: '/settings/automations' },
+            { label: '🏢 Empresas', path: '/companies' },
           ].map(({ label, path }) => (
             <button key={path} onClick={() => goTo(path)} style={{
               padding: '7px 14px', borderRadius: '8px', border: '1px solid #e5e7eb',

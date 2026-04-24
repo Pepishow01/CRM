@@ -33,6 +33,14 @@ export class EmailController {
     return this.emailService.removeInbox(id);
   }
 
+  @Post('transcript/:chatId')
+  sendTranscript(
+    @Param('chatId') chatId: string,
+    @Body() body: { email?: string },
+  ) {
+    return this.emailService.sendTranscript(chatId, body.email);
+  }
+
   @Post('send/:chatId')
   sendEmail(
     @Param('chatId') chatId: string,

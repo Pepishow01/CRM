@@ -20,6 +20,8 @@ import { WidgetModule } from './modules/widget/widget.module';
 import { CustomAttributesModule } from './modules/custom-attributes/custom-attributes.module';
 import { SearchModule } from './modules/search/search.module';
 import { MacrosModule } from './modules/macros/macros.module';
+import { CompaniesModule } from './modules/companies/companies.module';
+import { AutomationsModule } from './modules/automations/automations.module';
 
 @Module({
   imports: [
@@ -56,6 +58,8 @@ import { MacrosModule } from './modules/macros/macros.module';
     CustomAttributesModule,
     SearchModule,
     MacrosModule,
+    CompaniesModule,
+    AutomationsModule,
   ],
 })
 export class AppModule {}
