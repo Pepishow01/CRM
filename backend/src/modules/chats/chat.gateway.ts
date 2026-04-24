@@ -101,6 +101,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  async emitChatUpdated(chatId: string): Promise<void> {
+    this.server.to('admins').emit('chat:updated', { chatId });
+    this.server.emit('chat:updated', { chatId });
+  }
+
   @SubscribeMessage('chat:join')
   handleJoinChat(
     @ConnectedSocket() client: Socket,
@@ -115,5 +120,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { chatId: string },
   ): void {
     client.leave(`chat:${data.chatId}`);
+  }
+
+  @SubscribeMessage('chat:typing')
+  handleTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { chatId: string; isTyping: boolean },
+  ): void {
+    client.to(`chat:${data.chatId}`).emit('chat:typing', {
+      chatId: data.chatId,
+      userId: client.data.userId,
+      isTyping: data.isTyping,
+    });
   }
 }

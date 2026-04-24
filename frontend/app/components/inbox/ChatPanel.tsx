@@ -70,9 +70,17 @@ interface ChatPanelProps {
   chatId: string;
   onClose: () => void;
   onLabelsChange?: (chatId: string, labels: any[]) => void;
+  onConvStatusChange?: () => void;
 }
 
-export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanelProps) {
+const SNOOZE_OPTIONS = [
+  { label: '1 hora',     minutes: 60 },
+  { label: '4 horas',    minutes: 240 },
+  { label: 'Mañana',     minutes: 24 * 60 },
+  { label: 'Próxima semana', minutes: 7 * 24 * 60 },
+];
+
+export default function ChatPanel({ chatId, onClose, onLabelsChange, onConvStatusChange }: ChatPanelProps) {
   const [chat, setChat] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
@@ -87,6 +95,11 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ file: File; previewUrl: string | null } | null>(null);
+  const [showSnooze, setShowSnooze] = useState(false);
+  const [updatingConvStatus, setUpdatingConvStatus] = useState(false);
+  const [typingLabel, setTypingLabel] = useState('');
+  const typingTimerRef = useRef<any>(null);
+  const isTypingRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -109,9 +122,22 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
     };
 
     socket.on('chat:new-message', handleNewMessage);
-    
+
+    const handleTyping = (data: any) => {
+      if (data.chatId === chatId && data.isTyping) {
+        setTypingLabel('El cliente está escribiendo...');
+        clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = setTimeout(() => setTypingLabel(''), 3000);
+      } else if (data.chatId === chatId) {
+        setTypingLabel('');
+      }
+    };
+    socket.on('chat:typing', handleTyping);
+
     return () => {
       socket.off('chat:new-message', handleNewMessage);
+      socket.off('chat:typing', handleTyping);
+      clearTimeout(typingTimerRef.current);
     };
   }, [chatId]);
 
@@ -139,6 +165,37 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
       const r = await api.get(`/chats/${chatId}/messages`); 
       setMessages(r.data); 
     } catch (err) { console.error(err); }
+  }
+
+  async function setConvStatus(status: string) {
+    setUpdatingConvStatus(true);
+    try {
+      await api.patch(`/chats/${chatId}`, { convStatus: status });
+      setChat((prev: any) => prev ? { ...prev, convStatus: status } : prev);
+      onConvStatusChange?.();
+    } finally { setUpdatingConvStatus(false); }
+  }
+
+  async function handleSnooze(minutes: number) {
+    setShowSnooze(false);
+    const until = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+    await api.post(`/chats/${chatId}/snooze`, { until });
+    setChat((prev: any) => prev ? { ...prev, convStatus: 'snoozed', snoozedUntil: until } : prev);
+    onConvStatusChange?.();
+  }
+
+  function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setText(e.target.value);
+    const socket = getSocket();
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      socket.emit('chat:typing', { chatId, isTyping: true });
+    }
+    clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      socket.emit('chat:typing', { chatId, isTyping: false });
+    }, 1500);
   }
 
   async function handleSend(isPrivate: boolean = false) {
@@ -297,8 +354,66 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
               {chat?.assignedTo && ` · ${chat.assignedTo.fullName}`}
             </div>
           </div>
+          {/* Conv status action buttons */}
+          <div style={{ display: 'flex', gap: '4px', position: 'relative' }}>
+            {chat?.convStatus !== 'resolved' && (
+              <button
+                onClick={() => setConvStatus('resolved')}
+                disabled={updatingConvStatus}
+                title="Resolver conversación"
+                style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid #10b981', background: '#f0fdf4', color: '#059669', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                ✓ Resolver
+              </button>
+            )}
+            {chat?.convStatus === 'resolved' && (
+              <button
+                onClick={() => setConvStatus('open')}
+                disabled={updatingConvStatus}
+                title="Reabrir conversación"
+                style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid #3b82f6', background: '#eff6ff', color: '#2563eb', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                ↩ Reabrir
+              </button>
+            )}
+            {chat?.convStatus !== 'pending' && chat?.convStatus !== 'resolved' && (
+              <button
+                onClick={() => setConvStatus('pending')}
+                disabled={updatingConvStatus}
+                title="Marcar como pendiente"
+                style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid #f59e0b', background: '#fffbeb', color: '#d97706', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                ⏳ Pendiente
+              </button>
+            )}
+            <button
+              onClick={() => setShowSnooze(!showSnooze)}
+              title="Posponer conversación"
+              style={{ padding: '5px 8px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#f9fafb', color: '#6b7280', fontSize: '13px', cursor: 'pointer' }}
+            >
+              ⏰
+            </button>
+            {showSnooze && (
+              <div style={{ position: 'absolute', top: '110%', right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '160px', overflow: 'hidden' }}>
+                <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 600, color: '#6b7280', borderBottom: '1px solid #f3f4f6' }}>Posponer hasta...</div>
+                {SNOOZE_OPTIONS.map((opt) => (
+                  <button key={opt.label} onClick={() => handleSnooze(opt.minutes)} style={{ display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#374151' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#f9fafb')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}>&times;</button>
         </div>
+        {typingLabel && (
+          <div style={{ padding: '4px 16px 6px', fontSize: '11px', color: '#6b7280', fontStyle: 'italic' }}>
+            {typingLabel}
+          </div>
+        )}
       </div>
 
       {/* MESSAGES */}
@@ -392,7 +507,7 @@ export default function ChatPanel({ chatId, onClose, onLabelsChange }: ChatPanel
           ) : (
             <textarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={handleTextChange}
               onKeyDown={handleKeyDown}
               placeholder={isPrivateMode ? "Escribe una nota interna..." : "Shift + enter for new line. Comience con '/' para seleccionar una respuesta..."}
               style={{ width: '100%', minHeight: '60px', border: 'none', outline: 'none', background: 'transparent', fontSize: '14px', resize: 'none' }}

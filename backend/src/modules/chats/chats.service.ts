@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Chat, ChannelType } from './entities/chat.entity';
+import { Chat, ChannelType, ConvStatus } from './entities/chat.entity';
 import { Message, MessageDirection } from '../messages/entities/message.entity';
 
 @Injectable()
@@ -87,18 +87,41 @@ export class ChatsService {
     await this.chatsRepo.update(chatId, updateData);
   }
 
-  async findAll(userId?: string): Promise<Chat[]> {
+  async findAll(options?: { userId?: string; convStatus?: string }): Promise<Chat[]> {
+    // Auto-reopen expired snoozed chats
+    await this.chatsRepo
+      .createQueryBuilder()
+      .update(Chat)
+      .set({ convStatus: ConvStatus.OPEN, snoozedUntil: null as any })
+      .where('conv_status = :snoozed', { snoozed: ConvStatus.SNOOZED })
+      .andWhere('snoozed_until IS NOT NULL')
+      .andWhere('snoozed_until <= NOW()')
+      .execute();
+
     const query = this.chatsRepo
       .createQueryBuilder('chat')
       .leftJoinAndSelect('chat.contact', 'contact')
       .leftJoinAndSelect('chat.assignedTo', 'assignedTo')
       .orderBy('chat.lastMessageAt', 'DESC');
 
-    if (userId) {
-      query.where('chat.assignedTo = :userId', { userId });
+    if (options?.userId) {
+      query.andWhere('chat.assignedTo = :userId', { userId: options.userId });
+    }
+    if (options?.convStatus) {
+      query.andWhere('chat.conv_status = :convStatus', { convStatus: options.convStatus });
     }
 
     return query.getMany();
+  }
+
+  async setConvStatus(chatId: string, convStatus: ConvStatus): Promise<void> {
+    const update: any = { convStatus };
+    if (convStatus !== ConvStatus.SNOOZED) update.snoozedUntil = null;
+    await this.chatsRepo.update(chatId, update);
+  }
+
+  async snooze(chatId: string, until: Date): Promise<void> {
+    await this.chatsRepo.update(chatId, { convStatus: ConvStatus.SNOOZED, snoozedUntil: until });
   }
 
   async updateStatus(chatId: string, status: string): Promise<void> {

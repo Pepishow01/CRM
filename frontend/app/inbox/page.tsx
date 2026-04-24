@@ -18,6 +18,13 @@ const CHANNEL_ICONS: Record<string, string> = {
   whatsapp: '📱', instagram: '📸', messenger: '💬', email: '📧', widget: '🌐',
 };
 
+const CONV_STATUS_TABS = [
+  { value: 'open',     label: 'Abiertas',  color: '#3b82f6' },
+  { value: 'pending',  label: 'Pendientes', color: '#f59e0b' },
+  { value: 'resolved', label: 'Resueltas',  color: '#10b981' },
+  { value: 'snoozed',  label: 'Pospuestas', color: '#8b5cf6' },
+];
+
 function InboxContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -32,7 +39,10 @@ function InboxContent() {
   useNotifications(activeChatId);
   useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
 
-  // Filters
+  // Conv status tab (primary filter)
+  const [convStatus, setConvStatus] = useState('open');
+
+  // Secondary filters
   const [filterStatus, setFilterStatus] = useState('');
   const [filterChannel, setFilterChannel] = useState('');
   const [filterLabel, setFilterLabel] = useState('');
@@ -92,6 +102,8 @@ function InboxContent() {
           } else { loadChats(); return prev; }
         });
       });
+      // Cuando se cambia estado de conversación, refrescar lista
+      socket.on('chat:updated', () => { loadChats(); });
     }
     if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
     return () => { disconnectSocket(); };
@@ -115,19 +127,19 @@ function InboxContent() {
 
   async function loadChats() {
     try {
-      let url = '/chats';
-      const params: string[] = [];
+      setLoading(true);
+      const params: string[] = [`convStatus=${convStatus}`];
       if (filterStatus) params.push(`status=${filterStatus}`);
       if (filterChannel) params.push(`channel=${filterChannel}`);
       if (filterLabel) params.push(`labelId=${filterLabel}`);
-      if (params.length) url = `/search/chats?${params.join('&')}`;
+      const url = `/search/chats?${params.join('&')}`;
       const r = await api.get(url);
       setChats(r.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }
 
-  useEffect(() => { loadChats(); }, [filterStatus, filterChannel, filterLabel]);
+  useEffect(() => { loadChats(); }, [convStatus, filterStatus, filterChannel, filterLabel]);
 
   function handleLogout() {
     disconnectSocket();
@@ -164,36 +176,25 @@ function InboxContent() {
       }}>
         <span style={{ fontSize: '16px', fontWeight: 700, color: '#4f46e5', marginRight: '4px' }}>CRM</span>
 
-        {/* Search */}
         <div style={{ flex: 1, maxWidth: '400px', position: 'relative' }}>
           <input
             value={searchQ}
             onChange={(e) => setSearchQ(e.target.value)}
             placeholder="🔍 Buscar contactos, mensajes..."
-            style={{
-              width: '100%', padding: '7px 12px', borderRadius: '8px',
-              border: '1px solid #e5e7eb', fontSize: '13px', boxSizing: 'border-box',
-              background: '#f9fafb',
-            }}
+            style={{ width: '100%', padding: '7px 12px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px', boxSizing: 'border-box', background: '#f9fafb' }}
           />
-          {searching && (
-            <span style={{ position: 'absolute', right: '10px', top: '8px', fontSize: '11px', color: '#9ca3af' }}>...</span>
-          )}
+          {searching && <span style={{ position: 'absolute', right: '10px', top: '8px', fontSize: '11px', color: '#9ca3af' }}>...</span>}
         </div>
 
-        {/* Nav buttons */}
         <button onClick={() => router.push('/contacts')} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', fontSize: '12px', cursor: 'pointer' }}>
           👥 Contactos
         </button>
         <button onClick={() => router.push('/reports')} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', fontSize: '12px', cursor: 'pointer' }}>
           📊 Reportes
         </button>
-
-        <div style={{ position: 'relative' }}>
-          <button onClick={() => setIsSettingsOpen(true)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', fontSize: '12px', cursor: 'pointer' }}>
-            ⚙️ Ajustes
-          </button>
-        </div>
+        <button onClick={() => setIsSettingsOpen(true)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', fontSize: '12px', cursor: 'pointer' }}>
+          ⚙️ Ajustes
+        </button>
 
         <span style={{ fontSize: '12px', color: '#9ca3af' }}>{user.fullName}</span>
         <button onClick={handleLogout} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', fontSize: '12px', cursor: 'pointer' }}>Salir</button>
@@ -204,25 +205,45 @@ function InboxContent() {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Sidebar: chat list */}
         <div style={{ width: '300px', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', background: '#f9fafb', flexShrink: 0 }}>
+
+          {/* Conv status tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', background: '#fff', flexShrink: 0 }}>
+            {CONV_STATUS_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setConvStatus(tab.value)}
+                style={{
+                  flex: 1, padding: '9px 2px', border: 'none', background: 'none', cursor: 'pointer',
+                  fontSize: '11px', fontWeight: convStatus === tab.value ? 700 : 400,
+                  color: convStatus === tab.value ? tab.color : '#9ca3af',
+                  borderBottom: convStatus === tab.value ? `2px solid ${tab.color}` : '2px solid transparent',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {/* Filter bar */}
-          <div style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', background: '#fff', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showFilters ? '10px' : 0 }}>
-              <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid #e5e7eb', background: '#fff', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: '#374151' }}>
                 Bandeja
-                <span style={{ marginLeft: '6px', background: '#6366f1', color: '#fff', borderRadius: '20px', padding: '1px 7px', fontSize: '11px' }}>
+                <span style={{ marginLeft: '6px', background: '#6366f1', color: '#fff', borderRadius: '20px', padding: '1px 7px', fontSize: '10px' }}>
                   {displayChats.length}
                 </span>
               </span>
               <button onClick={() => setShowFilters(!showFilters)} style={{
                 border: 'none', background: activeFilters > 0 ? '#ede9fe' : 'transparent',
-                borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '12px',
+                borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '11px',
                 color: activeFilters > 0 ? '#6366f1' : '#6b7280',
               }}>
                 🔽 Filtros{activeFilters > 0 ? ` (${activeFilters})` : ''}
               </button>
             </div>
             {showFilters && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
                 <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
                   style={{ padding: '5px 8px', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '12px' }}>
                   <option value="">Todos los estados</option>
@@ -321,6 +342,7 @@ function InboxContent() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '11px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                       {chat.isLastMessagePrivate && <span>🔒</span>}
+                      {chat.snoozedUntil && chat.convStatus === 'snoozed' && <span title={`Hasta ${new Date(chat.snoozedUntil).toLocaleString('es-AR')}`}>⏰</span>}
                       {chat.lastMessagePreview ?? 'Sin mensajes'}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
@@ -332,7 +354,6 @@ function InboxContent() {
                       )}
                     </div>
                   </div>
-                  {/* Labels */}
                   {chat.labels?.length > 0 && (
                     <div style={{ display: 'flex', gap: '3px', marginTop: '3px', flexWrap: 'wrap' }}>
                       {chat.labels.slice(0, 3).map((l: any) => (
@@ -370,6 +391,7 @@ function InboxContent() {
               onLabelsChange={(chatId, newLabels) => {
                 setChats((prev) => prev.map((c) => c.id === chatId ? { ...c, labels: newLabels } : c));
               }}
+              onConvStatusChange={() => loadChats()}
             />
           </div>
         ) : (

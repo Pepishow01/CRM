@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, Repository } from 'typeorm';
 import { Contact } from './entities/contact.entity';
+import { ContactNote } from './entities/contact-note.entity';
 import { NormalizedIncomingMessage } from '../webhooks/dto/normalized-message.dto';
 
 @Injectable()
@@ -9,6 +10,8 @@ export class ContactsService {
   constructor(
     @InjectRepository(Contact)
     private contactsRepo: Repository<Contact>,
+    @InjectRepository(ContactNote)
+    private notesRepo: Repository<ContactNote>,
   ) {}
 
   async upsertFromIncoming(msg: NormalizedIncomingMessage): Promise<Contact> {
@@ -89,5 +92,25 @@ export class ContactsService {
     const contact = await this.contactsRepo.findOne({ where: { id } });
     if (!contact) throw new NotFoundException('Contacto no encontrado');
     await this.contactsRepo.remove(contact);
+  }
+
+  async getNotes(contactId: string): Promise<ContactNote[]> {
+    return this.notesRepo.find({
+      where: { contactId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async addNote(contactId: string, content: string, authorId?: string): Promise<ContactNote> {
+    const note = this.notesRepo.create({
+      contactId,
+      content,
+      author: authorId ? ({ id: authorId } as any) : undefined,
+    });
+    return this.notesRepo.save(note);
+  }
+
+  async deleteNote(noteId: string): Promise<void> {
+    await this.notesRepo.delete(noteId);
   }
 }

@@ -56,6 +56,7 @@ export class SearchService {
 
   async filterChats(filters: {
     status?: string;
+    convStatus?: string;
     channel?: string;
     assignedTo?: string;
     labelId?: string;
@@ -70,6 +71,9 @@ export class SearchService {
 
     if (filters.status) {
       query = query.andWhere('chat.status = :status', { status: filters.status });
+    }
+    if (filters.convStatus) {
+      query = query.andWhere('chat.conv_status = :convStatus', { convStatus: filters.convStatus });
     }
     if (filters.channel) {
       query = query.andWhere('chat.channel = :channel', { channel: filters.channel });

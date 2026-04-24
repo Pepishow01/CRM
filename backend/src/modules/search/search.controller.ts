@@ -18,12 +18,13 @@ export class SearchController {
   @Get('chats')
   filterChats(
     @Query('status') status?: string,
+    @Query('convStatus') convStatus?: string,
     @Query('channel') channel?: string,
     @Query('assignedTo') assignedTo?: string,
     @Query('labelId') labelId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    return this.searchService.filterChats({ status, channel, assignedTo, labelId, from, to });
+    return this.searchService.filterChats({ status, convStatus, channel, assignedTo, labelId, from, to });
   }
 }

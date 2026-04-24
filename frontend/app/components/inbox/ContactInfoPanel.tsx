@@ -43,7 +43,8 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
   const [teams, setTeams] = useState<any[]>([]);
   const [previousChats, setPreviousChats] = useState<any[]>([]);
   const [note, setNote] = useState('');
-  const [contactNotes, setContactNotes] = useState<string[]>([]);
+  const [contactNotes, setContactNotes] = useState<any[]>([]);
+  const [savingNote, setSavingNote] = useState(false);
   const [updatingAgent, setUpdatingAgent] = useState(false);
   const [updatingTeam, setUpdatingTeam] = useState(false);
   const [updatingPriority, setUpdatingPriority] = useState(false);
@@ -83,6 +84,7 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
     }
     if (chat?.contact?.id) {
       api.get(`/custom-attributes/values/${chat.contact.id}`).then((r) => setAttrValues(r.data)).catch(() => {});
+      api.get(`/contacts/${chat.contact.id}/notes`).then((r) => setContactNotes(r.data)).catch(() => {});
     }
     api.get(`/chats/${chatId}/participants`).then((r) => setParticipants(r.data)).catch(() => {});
   }, [chatId, chat?.contact?.id]);
@@ -111,10 +113,19 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
     } finally { setUpdatingPriority(false); }
   }
 
-  function addNote() {
-    if (!note.trim()) return;
-    setContactNotes((prev) => [...prev, note.trim()]);
-    setNote('');
+  async function addNote() {
+    if (!note.trim() || savingNote) return;
+    setSavingNote(true);
+    try {
+      const r = await api.post(`/contacts/${contact?.id}/notes`, { content: note.trim() });
+      setContactNotes((prev) => [r.data, ...prev]);
+      setNote('');
+    } finally { setSavingNote(false); }
+  }
+
+  async function deleteNote(noteId: string) {
+    await api.delete(`/contacts/${contact?.id}/notes/${noteId}`);
+    setContactNotes((prev) => prev.filter((n) => n.id !== noteId));
   }
 
   const dropdownStyle: React.CSSProperties = {
@@ -241,21 +252,34 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
         <div>
           {contactNotes.length === 0 && (
             <p style={{ color: '#9ca3af', fontSize: '12px', textAlign: 'center', margin: '4px 0 8px' }}>
-              There are no notes yet. Use the Add note button to create one.
+              Sin notas. Agregá una abajo.
             </p>
           )}
-          {contactNotes.map((n, i) => (
-            <div key={i} style={{ background: '#fef9c3', borderRadius: '6px', padding: '8px', marginBottom: '6px', fontSize: '12px', color: '#78350f' }}>{n}</div>
+          {contactNotes.map((n: any) => (
+            <div key={n.id} style={{ background: '#fef9c3', borderRadius: '6px', padding: '8px', marginBottom: '6px', border: '1px solid #fde68a', position: 'relative' }}>
+              <div style={{ fontSize: '12px', color: '#78350f', paddingRight: '20px', whiteSpace: 'pre-wrap' }}>{n.content}</div>
+              <div style={{ fontSize: '10px', color: '#a16207', marginTop: '4px' }}>
+                {n.author?.fullName || 'Agente'} · {new Date(n.createdAt).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+              </div>
+              <button
+                onClick={() => deleteNote(n.id)}
+                style={{ position: 'absolute', top: '6px', right: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#a16207', fontSize: '12px', opacity: 0.6, padding: '0 2px' }}
+                title="Eliminar nota"
+              >✕</button>
+            </div>
           ))}
           <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-            <input
+            <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addNote()}
-              placeholder="Agregar nota..."
-              style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '12px', outline: 'none' }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote(); } }}
+              placeholder="Agregar nota... (Enter para guardar)"
+              rows={2}
+              style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '12px', outline: 'none', resize: 'none' }}
             />
-            <button onClick={addNote} style={{ padding: '6px 10px', borderRadius: '6px', border: 'none', background: '#4f46e5', color: '#fff', cursor: 'pointer', fontSize: '12px' }}>+</button>
+            <button onClick={addNote} disabled={savingNote} style={{ padding: '6px 10px', borderRadius: '6px', border: 'none', background: '#4f46e5', color: '#fff', cursor: 'pointer', fontSize: '12px', alignSelf: 'flex-end' }}>
+              {savingNote ? '...' : '+'}
+            </button>
           </div>
         </div>
       </Section>
@@ -296,8 +320,12 @@ export default function ContactInfoPanel({ chatId, chat, chatLabels, onLabelsCha
             <span style={{ fontWeight: 500, textTransform: 'capitalize' }}>{chat?.channel || '—'}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#6b7280' }}>Estado</span>
+            <span style={{ color: '#6b7280' }}>Etapa</span>
             <span style={{ fontWeight: 500 }}>{chat?.status || '—'}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#6b7280' }}>Conversación</span>
+            <span style={{ fontWeight: 500, textTransform: 'capitalize' }}>{chat?.convStatus || 'open'}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: '#6b7280' }}>Creado</span>

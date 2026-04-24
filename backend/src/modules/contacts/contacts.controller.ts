@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Patch, Delete, Param, Body, Query, UseGuards,
+  Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, Request,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -33,5 +33,24 @@ export class ContactsController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.contactsService.removeContact(id);
+  }
+
+  @Get(':id/notes')
+  getNotes(@Param('id') id: string) {
+    return this.contactsService.getNotes(id);
+  }
+
+  @Post(':id/notes')
+  addNote(
+    @Param('id') id: string,
+    @Body() body: { content: string },
+    @Request() req: any,
+  ) {
+    return this.contactsService.addNote(id, body.content, req.user?.sub);
+  }
+
+  @Delete(':id/notes/:noteId')
+  deleteNote(@Param('noteId') noteId: string) {
+    return this.contactsService.deleteNote(noteId);
   }
 }

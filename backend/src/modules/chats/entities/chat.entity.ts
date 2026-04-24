@@ -16,6 +16,13 @@ export enum LeadStatus {
   LOST        = 'lost',
 }
 
+export enum ConvStatus {
+  OPEN     = 'open',
+  PENDING  = 'pending',
+  RESOLVED = 'resolved',
+  SNOOZED  = 'snoozed',
+}
+
 export enum ChatPriority {
   NONE   = 'none',
   LOW    = 'low',
@@ -57,6 +64,12 @@ export class Chat {
 
   @Column({ type: 'enum', enum: LeadStatus, default: LeadStatus.NEW })
   status: LeadStatus;
+
+  @Column({ type: 'enum', enum: ConvStatus, default: ConvStatus.OPEN, name: 'conv_status' })
+  convStatus: ConvStatus;
+
+  @Column({ name: 'snoozed_until', nullable: true, type: 'timestamp' })
+  snoozedUntil: Date;
 
   @Column({ name: 'ai_classification', nullable: true })
   aiClassification: string;
