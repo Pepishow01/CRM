@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ContactsService } from '../../contacts/contacts.service';
 import { ChatsService } from '../../chats/chats.service';
+import { ConvStatus } from '../../chats/entities/chat.entity';
 import { MessagesService } from '../../messages/messages.service';
 import { ChatGateway } from '../../chats/chat.gateway';
 import { NormalizedIncomingMessage } from '../dto/normalized-message.dto';
@@ -125,8 +126,8 @@ export class MessageProcessor {
     } catch (e) { this.logger.warn(`Automations error: ${e.message}`); }
 
     // --- BOT AUTO-RESPUESTA ---
-    this.logger.log(`ESTADO BOT: chat.isBotActive=${chat.isBotActive}, type=${msg.contentType}`);
-    if (chat.isBotActive && msg.contentType === 'text') {
+    this.logger.log(`ESTADO BOT: chat.isBotActive=${chat.isBotActive}, convStatus=${chat.convStatus}, type=${msg.contentType}`);
+    if ((chat.isBotActive || chat.convStatus === ConvStatus.PENDING) && msg.contentType === 'text') {
       try {
         this.logger.log(`Bot activo para chat ${chat.id}. Generando respuesta...`);
         const historyData = await this.messagesService.findByChatId(chat.id, { page: 1, limit: 100 });

@@ -41,6 +41,7 @@ export class ChatsService {
       const newChat = new Chat();
       newChat.contact = { id: data.contactId } as any;
       newChat.channel = data.channel as ChannelType;
+      newChat.convStatus = ConvStatus.PENDING; // New chats start as pending
       const saved = await this.chatsRepo.save(newChat);
       chat = await this.chatsRepo
         .createQueryBuilder('chat')
